@@ -26,7 +26,7 @@ class MenuProductImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final radius = borderRadius ?? BorderRadius.circular(4);
-    final placeholder = Icon(Icons.restaurant, color: colorScheme.surfaceDim, size: 32);
+    final placeholder = Icon(Icons.image_outlined, color: colorScheme.surfaceDim, size: 32);
 
     if (!_hasUrl) {
       return Container(

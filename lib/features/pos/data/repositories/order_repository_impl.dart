@@ -1,7 +1,9 @@
 import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
-import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/order_repository.dart';
 
 class OrderRepositoryImpl implements OrderRepository {
@@ -161,6 +163,8 @@ class OrderRepositoryImpl implements OrderRepository {
             customerName: customerName,
             tableNumber: initiated.order.tableNumber,
             ticketNumber: initiated.order.ticketNumber,
+            source: initiated.order.source,
+            assignedBranchMemberUserId: initiated.order.assignedBranchMemberUserId,
             createdAt: initiated.order.createdAt,
           ),
         );
@@ -177,6 +181,24 @@ class OrderRepositoryImpl implements OrderRepository {
     try {
       final order = await _remoteDatasource.getOrder(orderId);
 
+      return Result.success(data: order);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<OrderEntity>> submitOrder({
+    required String orderId,
+    required String customerPhone,
+    String? customerName,
+  }) async {
+    try {
+      final order = await _remoteDatasource.submitOrder(
+        orderId: orderId,
+        customerPhone: customerPhone,
+        customerName: customerName,
+      );
       return Result.success(data: order);
     } catch (e) {
       return Result.failure(error: e);
@@ -218,6 +240,38 @@ class OrderRepositoryImpl implements OrderRepository {
       final methods = await _remoteDatasource.getPaymentMethods(branchId: session.branchId);
 
       return Result.success(data: methods);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<OrderWorkflowSettingsEntity>> getEffectiveWorkflowSettings() async {
+    try {
+      final session = await _sessionStorage.loadSession();
+
+      if (session == null) {
+        return Result.failure(error: 'Not authenticated.');
+      }
+
+      final settings = await _remoteDatasource.getEffectiveWorkflowSettings(branchId: session.branchId);
+      return Result.success(data: settings);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<BusinessProfileEntity>> getBusinessProfile() async {
+    try {
+      final session = await _sessionStorage.loadSession();
+
+      if (session == null) {
+        return Result.failure(error: 'Not authenticated.');
+      }
+
+      final profile = await _remoteDatasource.getBusinessProfile(branchId: session.branchId);
+      return Result.success(data: profile);
     } catch (e) {
       return Result.failure(error: e);
     }

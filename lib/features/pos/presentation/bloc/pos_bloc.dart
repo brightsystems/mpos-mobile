@@ -3,7 +3,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/core/config/mpos_config.dart';
+import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/core/usecase/no_param.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/rbac.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/order_repository.dart';
@@ -26,6 +30,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     required OrderRepository orderRepository,
     required SubmitOrderInvoiceUsecase submitOrderInvoiceUsecase,
     required PollOrderInvoiceUsecase pollOrderInvoiceUsecase,
+    required SessionStorage sessionStorage,
   }) : _syncBranchMenuUsecase = syncBranchMenuUsecase,
        _loadOpenOrdersUsecase = loadOpenOrdersUsecase,
        _createTicketUsecase = createTicketUsecase,
@@ -37,6 +42,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
        _orderRepository = orderRepository,
        _submitOrderInvoiceUsecase = submitOrderInvoiceUsecase,
        _pollOrderInvoiceUsecase = pollOrderInvoiceUsecase,
+       _sessionStorage = sessionStorage,
        super(const PosState()) {
     on<PosStarted>(_onStarted);
     on<PosRefreshRequested>(_onRefresh);
@@ -66,6 +72,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   final OrderRepository _orderRepository;
   final SubmitOrderInvoiceUsecase _submitOrderInvoiceUsecase;
   final PollOrderInvoiceUsecase _pollOrderInvoiceUsecase;
+  final SessionStorage _sessionStorage;
+
+  Future<AuthSessionEntity?> _session() => _sessionStorage.loadSession();
+
+  bool _canCollectPayment(AuthSessionEntity? session) => session?.canCollectPayment ?? false;
 
   Future<void> _onStarted(PosStarted event, Emitter<PosState> emit) async {
     await _loadAll(emit, fullRefresh: true);
@@ -107,6 +118,10 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     final activeTicketId = _resolveActiveTicketId(openOrders, preferredTicketId: state.activeTicketId);
     final methodsResult = await _orderRepository.getPaymentMethods();
     final methods = methodsResult.data;
+    final workflowSettingsResult = await _orderRepository.getEffectiveWorkflowSettings();
+    final workflowSettings = workflowSettingsResult.data;
+    final businessProfileResult = await _orderRepository.getBusinessProfile();
+    final businessProfile = businessProfileResult.data ?? BusinessProfileEntity.cafeteria;
 
     emit(
       state.copyWith(
@@ -119,6 +134,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         enableCash: methods?.cash ?? true,
         enableChapa: methods?.chapa ?? true,
         enableTelebirr: methods?.telebirr ?? false,
+        workflowSettings: workflowSettings,
+        businessProfile: businessProfile,
         clearError: true,
       ),
     );
@@ -314,6 +331,44 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     }
 
     emit(state.copyWith(status: PosStatus.checkingOut, clearError: true));
+
+    final session = await _session();
+    final workflowSettings = state.workflowSettings;
+    // Approval workflow is for create-only roles (e.g. waiter). Staff who can collect
+    // payment should check out directly even when requireCashierApproval is enabled.
+    final requiresApproval = workflowSettings != null &&
+        !workflowSettings.isDirectPos &&
+        workflowSettings.requireCashierApproval &&
+        activeTicket.status == 'Draft' &&
+        !_canCollectPayment(session);
+    if (requiresApproval) {
+      final submitted = await _orderRepository.submitOrder(
+        orderId: activeTicket.id,
+        customerPhone: event.customerPhone,
+        customerName: event.customerName,
+      );
+
+      if (!submitted.isSuccess || submitted.data == null) {
+        emit(
+          state.copyWith(
+            status: PosStatus.ready,
+            errorMessage: submitted.error?.toString() ?? 'Failed to submit order for approval.',
+          ),
+        );
+        return;
+      }
+
+      final submittedOrder = submitted.data!;
+      emit(
+        state.copyWith(
+          status: PosStatus.ready,
+          openOrders: _mergeUpdatedOrder(state.openOrders, submittedOrder),
+          selectedSplitQuantities: const {},
+          errorMessage: 'Order submitted for cashier approval.',
+        ),
+      );
+      return;
+    }
 
     final lineQuantities = event.selectedOnly ? event.splitQuantities ?? state.selectedSplitQuantities : null;
     final result = await _settleTicketUsecase(

@@ -17,15 +17,25 @@ class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-class AuthUnauthenticated extends AuthState {
-  const AuthUnauthenticated({this.message});
-
-  final String? message;
-
-  @override
-  List<Object?> get props => [message];
+/// A one-time OTP request is in flight.
+class AuthOtpSending extends AuthState {
+  const AuthOtpSending();
 }
 
+/// OTP was sent; the phone-login screen moves to code entry.
+class AuthOtpSent extends AuthState {
+  const AuthOtpSent({required this.phone, required this.requestId, required this.expiresInSeconds, this.devOtp});
+
+  final String phone;
+  final String requestId;
+  final int expiresInSeconds;
+  final String? devOtp;
+
+  @override
+  List<Object?> get props => [phone, requestId, expiresInSeconds, devOtp];
+}
+
+/// Signed in and has an organization -> route by role.
 class AuthAuthenticated extends AuthState {
   const AuthAuthenticated(this.session);
 
@@ -33,4 +43,33 @@ class AuthAuthenticated extends AuthState {
 
   @override
   List<Object?> get props => [session];
+}
+
+/// Signed in but has no organization -> first-time business setup.
+class AuthNeedsOnboarding extends AuthState {
+  const AuthNeedsOnboarding(this.session);
+
+  final AuthSessionEntity session;
+
+  @override
+  List<Object?> get props => [session];
+}
+
+/// Signed in with one or more businesses -> choose which to open.
+class AuthNeedsBusinessSelection extends AuthState {
+  const AuthNeedsBusinessSelection(this.session);
+
+  final AuthSessionEntity session;
+
+  @override
+  List<Object?> get props => [session];
+}
+
+class AuthUnauthenticated extends AuthState {
+  const AuthUnauthenticated({this.message});
+
+  final String? message;
+
+  @override
+  List<Object?> get props => [message];
 }

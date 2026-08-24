@@ -5,6 +5,7 @@ import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/core/mock/mock_fixtures.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/shared/widgets/app_dialog.dart';
@@ -16,8 +17,16 @@ class PaymentSuccessDialog {
     required BuildContext context,
     required OrderEntity order,
     FiscalInvoiceEntity? invoice,
+    BusinessTypeReceipt? receipt,
+    BusinessTypeVocabulary? vocabulary,
     required VoidCallback onDone,
   }) {
+    final receiptProfile = receipt ?? BusinessTypeReceipt.cafeteria;
+    final vocab = vocabulary ?? BusinessTypeVocabulary.cafeteria;
+    final servicePoint = order.tableNumber == null || order.tableNumber == 'Walk-in'
+        ? vocab.walkIn
+        : order.tableNumber!;
+
     AppDialog.show(
       title: 'Payment successful',
       rightButtonText: 'Done',
@@ -30,7 +39,14 @@ class PaymentSuccessDialog {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Order ${order.orderNumber}',
+            receiptProfile.titleLabel,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          Text(
+            '${vocab.ticket} ${order.orderNumber}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
@@ -39,6 +55,33 @@ class PaymentSuccessDialog {
             CurrencyFormatter.format(order.totalAmount),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSizes.padding / 2),
+          if (receiptProfile.showClientName && (order.customerName?.isNotEmpty ?? false))
+            Text(
+              '${receiptProfile.clientNameLabel}: ${order.customerName}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (receiptProfile.showClientReference && (order.customerPhone?.isNotEmpty ?? false))
+            Text(
+              '${receiptProfile.clientReferenceLabel}: ${order.customerPhone}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (receiptProfile.showServicePoint)
+            Text(
+              '${receiptProfile.servicePointLabel}: $servicePoint',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          const SizedBox(height: AppSizes.padding / 2),
+          Text(
+            receiptProfile.footerNote,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppSizes.padding),
           if (invoice != null) ...[

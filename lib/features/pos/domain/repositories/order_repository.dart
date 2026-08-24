@@ -1,5 +1,7 @@
 import 'package:mpos_mobile/core/common/result.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 
 abstract class OrderRepository {
   Future<Result<List<OrderEntity>>> getOpenOrders();
@@ -34,6 +36,12 @@ abstract class OrderRepository {
 
   Future<Result<OrderEntity>> getOrder(String orderId);
 
+  Future<Result<OrderEntity>> submitOrder({
+    required String orderId,
+    required String customerPhone,
+    String? customerName,
+  });
+
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({
     required String paymentId,
     int maxAttempts = 30,
@@ -41,4 +49,8 @@ abstract class OrderRepository {
   });
 
   Future<Result<({bool cash, bool chapa, bool telebirr})>> getPaymentMethods();
+
+  Future<Result<OrderWorkflowSettingsEntity>> getEffectiveWorkflowSettings();
+
+  Future<Result<BusinessProfileEntity>> getBusinessProfile();
 }

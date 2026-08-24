@@ -20,6 +20,9 @@ dependencies:
   http: ^1.2.1
   shared_preferences: ^2.3.5
   mobile_scanner: ^7.0.1
+  qr_flutter: ^4.1.0
+  supabase_flutter: ^2.8.0
+  image_picker: ^1.1.2
   sliding_up_panel: ^2.0.0+1
   app_image: ^1.0.13
   url_launcher: ^6.3.0
@@ -29,6 +32,39 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
 
 flutter:
   uses-material-design: true
+
+# App launcher icon. Source PNG must be at assets/images/app_icon.png (1024x1024).
+# Generate with: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/images/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FF8935"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
+
+# Native OS splash (shown before Flutter starts). Matches the in-app splash.
+# Generate with: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#FF8935"
+  image: "assets/images/app_icon.png"
+  android_12:
+    color: "#FF8935"
+    image: "assets/images/app_icon.png"
+  color_dark: "#E0670D"
+  image_dark: "assets/images/app_icon.png"

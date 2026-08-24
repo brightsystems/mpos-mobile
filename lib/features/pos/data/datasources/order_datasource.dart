@@ -1,4 +1,6 @@
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 
 abstract class OrderDatasource {
   Future<OrderEntity> createOrder({required String branchId, String? clientOrderId});
@@ -45,4 +47,14 @@ abstract class OrderDatasource {
   Future<OrderPaymentEntity> getPaymentStatus(String paymentId);
 
   Future<OrderEntity> getOrder(String orderId);
+
+  Future<OrderEntity> submitOrder({
+    required String orderId,
+    required String customerPhone,
+    String? customerName,
+  });
+
+  Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId});
+
+  Future<BusinessProfileEntity> getBusinessProfile({required String branchId});
 }

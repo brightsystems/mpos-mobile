@@ -1,13 +1,46 @@
 import 'package:mpos_mobile/core/network/api_response.dart';
 import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/features/auth/data/datasources/auth_datasource.dart';
+import 'package:mpos_mobile/features/auth/data/mappers/auth_tokens_mapper.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
 
 class AuthRemoteDatasource implements AuthDatasource {
   AuthRemoteDatasource(this._client);
 
   final MposApiClient _client;
 
+  @override
+  Future<ApiResponse<OtpRequestEntity>> requestOtp({required String phone}) {
+    return _client.post(
+      '/auth/otp/request',
+      body: {'phone': phone},
+      fromJson: (json) => OtpRequestEntity.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  @override
+  Future<ApiResponse<AuthSessionEntity>> verifyOtp({
+    required String requestId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  }) {
+    return _client.post(
+      '/auth/otp/verify',
+      body: {
+        'requestId': requestId,
+        'code': code,
+        'deviceId': deviceId,
+        if (deviceName != null) 'deviceName': deviceName,
+      },
+      fromJson: (json) =>
+          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+    );
+  }
+
+  @override
   Future<ApiResponse<AuthSessionEntity>> shiftLogin({
     required String token,
     required String deviceId,
@@ -16,35 +49,18 @@ class AuthRemoteDatasource implements AuthDatasource {
     return _client.post(
       '/auth/shift/login',
       body: {'token': token, 'deviceId': deviceId, if (deviceName != null) 'deviceName': deviceName},
-      fromJson: (json) => _mapAuthSession(json as Map<String, dynamic>, deviceId),
+      fromJson: (json) =>
+          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.shift),
     );
   }
 
-  AuthSessionEntity _mapAuthSession(Map<String, dynamic> json, String deviceId) {
-    final user = (json['user'] ?? json['User']) as Map<String, dynamic>? ?? {};
-    final memberships = (json['memberships'] as List<dynamic>?) ?? (json['Memberships'] as List<dynamic>?) ?? [];
-    final membership = memberships.isNotEmpty ? Map<String, dynamic>.from(memberships.first as Map) : <String, dynamic>{};
-
-    final organizationId = '${membership['organizationId'] ?? membership['OrganizationId'] ?? ''}';
-    final branchId = '${membership['branchId'] ?? membership['BranchId'] ?? ''}';
-
-    if (organizationId.isEmpty || organizationId == 'null' || branchId.isEmpty || branchId == 'null') {
-      throw StateError('Shift login response missing organization or branch membership.');
-    }
-
-    return AuthSessionEntity(
-      accessToken: json['accessToken'] as String? ?? json['AccessToken'] as String,
-      refreshToken: json['refreshToken'] as String? ?? json['RefreshToken'] as String,
-      expiresInSeconds: json['expiresInSeconds'] as int? ?? json['ExpiresInSeconds'] as int,
-      userId: '${user['id'] ?? user['Id']}',
-      userPhone: user['phone'] as String? ?? user['Phone'] as String? ?? '',
-      userName: user['fullName'] as String? ?? user['FullName'] as String?,
-      organizationId: organizationId,
-      branchId: branchId,
-      organizationName: membership['organizationName'] as String? ?? membership['OrganizationName'] as String?,
-      branchName: membership['branchName'] as String? ?? membership['BranchName'] as String?,
-      role: membership['branchRole'] as String? ?? membership['BranchRole'] as String?,
-      deviceId: deviceId,
+  @override
+  Future<ApiResponse<AuthSessionEntity>> refresh({required String refreshToken, required String deviceId}) {
+    return _client.post(
+      '/auth/refresh',
+      body: {'refreshToken': refreshToken, 'deviceId': deviceId},
+      fromJson: (json) =>
+          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
     );
   }
 }

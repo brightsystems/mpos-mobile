@@ -1,7 +1,9 @@
 import 'package:mpos_mobile/core/network/json_reader.dart';
 import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 
 class OrderRemoteDatasource implements OrderDatasource {
@@ -279,6 +281,59 @@ class OrderRemoteDatasource implements OrderDatasource {
     return response.data!;
   }
 
+  @override
+  Future<OrderEntity> submitOrder({
+    required String orderId,
+    required String customerPhone,
+    String? customerName,
+  }) async {
+    final response = await _client.post(
+      '/orders/$orderId/submit',
+      authenticated: true,
+      body: {
+        'customerPhone': customerPhone,
+        if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
+      },
+      fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
+    );
+
+    if (!response.success || response.data == null) {
+      throw response.message ?? response.errors.join(', ');
+    }
+
+    return response.data!;
+  }
+
+  @override
+  Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId}) async {
+    final response = await _client.get(
+      '/branches/$branchId/order-workflow-settings/effective',
+      authenticated: true,
+      fromJson: (json) => _mapWorkflowSettings(json as Map<String, dynamic>),
+    );
+
+    if (!response.success || response.data == null) {
+      throw response.message ?? response.errors.join(', ');
+    }
+
+    return response.data!;
+  }
+
+  @override
+  Future<BusinessProfileEntity> getBusinessProfile({required String branchId}) async {
+    final response = await _client.get(
+      '/branches/$branchId/business-profile',
+      authenticated: true,
+      fromJson: (json) => BusinessProfileEntity.fromJson(json as Map<String, dynamic>),
+    );
+
+    if (!response.success || response.data == null) {
+      throw response.message ?? response.errors.join(', ');
+    }
+
+    return response.data!;
+  }
+
   OrderPaymentEntity _mapChapaInit(Map<String, dynamic> json, {String methodFallback = 'Chapa'}) {
     final reader = JsonReader(json);
 
@@ -324,7 +379,27 @@ class OrderRemoteDatasource implements OrderDatasource {
       payments: reader.listOfMaps('payments').map(_mapPayment).toList(),
       tableNumber: reader.string('tableNumber').isEmpty ? null : reader.string('tableNumber'),
       ticketNumber: reader.string('ticketNumber').isEmpty ? null : reader.string('ticketNumber'),
+      source: reader.string('source').isEmpty ? null : reader.string('source'),
+      assignedBranchMemberUserId: reader.string('assignedBranchMemberUserId').isEmpty
+          ? null
+          : reader.string('assignedBranchMemberUserId'),
       createdAt: reader.dateTime('createdAt'),
+    );
+  }
+
+  OrderWorkflowSettingsEntity _mapWorkflowSettings(Map<String, dynamic> json) {
+    final reader = JsonReader(json);
+    return OrderWorkflowSettingsEntity(
+      organizationId: reader.string('organizationId'),
+      branchId: reader.string('branchId'),
+      usesBranchOverride: reader.boolean('usesBranchOverride'),
+      workflowTemplate: reader.string('workflowTemplate', fallback: 'DirectPos'),
+      selfOrderEnabled: reader.boolean('selfOrderEnabled'),
+      selfOrderMode: reader.string('selfOrderMode', fallback: 'TableQr'),
+      requireCashierApproval: reader.boolean('requireCashierApproval'),
+      allowWalkInQr: reader.boolean('allowWalkInQr'),
+      requireTableForAssignment: reader.boolean('requireTableForAssignment'),
+      cashierCanAssumeOrder: reader.boolean('cashierCanAssumeOrder', fallback: true),
     );
   }
 

@@ -70,6 +70,8 @@ class _PosScreenState extends State<PosScreen> {
             context: context,
             order: state.lastOrder!,
             invoice: state.lastInvoice,
+            receipt: state.businessProfile?.receipt,
+            vocabulary: state.vocabulary,
             onDone: () => context.read<PosBloc>().add(const PosCheckoutDismissed()),
           );
         }
@@ -277,12 +279,13 @@ class _PosMenuItemCard extends StatelessWidget {
                 onChangedQuantity: (value) => quantity = value,
               ),
               const SizedBox(height: AppSizes.padding),
-              AppTextField(
-                controller: tableController,
-                labelText: 'Table number (optional)',
-                hintText: 'Leave empty for walk-in',
-                keyboardType: TextInputType.text,
-              ),
+              if (bloc.state.businessProfile?.showServicePoints ?? true)
+                AppTextField(
+                  controller: tableController,
+                  labelText: '${bloc.state.vocabulary.servicePoint} (optional)',
+                  hintText: 'Leave empty for ${bloc.state.walkInLabel().toLowerCase()}',
+                  keyboardType: TextInputType.text,
+                ),
             ],
           );
         },
@@ -290,7 +293,10 @@ class _PosMenuItemCard extends StatelessWidget {
       rightButtonText: 'Add',
       leftButtonText: 'Cancel',
       onTapRightButton: (dialogContext) {
-        bloc.add(PosItemAdded(item, quantity == 0 ? 1 : quantity, tableNumber: tableController.text.trim()));
+        final tableNumber = (bloc.state.businessProfile?.showServicePoints ?? true)
+            ? tableController.text.trim()
+            : '';
+        bloc.add(PosItemAdded(item, quantity == 0 ? 1 : quantity, tableNumber: tableNumber));
         dialogContext.pop();
       },
     );
@@ -356,7 +362,7 @@ class _PosCartHeader extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(right: AppSizes.padding / 2),
                         child: ChoiceChip(
-                          label: Text(table.tableNumber == 'Walk-in' ? 'Walk-in' : 'Table ${table.tableNumber}'),
+                          label: Text(state.servicePointChipLabel(table.tableNumber)),
                           selected: isSelected,
                           onSelected: (_) {
                             context.read<PosBloc>().add(PosTicketSelected(selectedTicket.id));
@@ -381,7 +387,7 @@ class _PosCartHeader extends StatelessWidget {
                         Text(
                           activeTicket == null
                               ? 'Current cart'
-                              : 'Table ${activeTicket.tableNumber} · ${activeTicket.ticketNumber}',
+                              : '${state.displayServicePoint(activeTicket.tableNumber)} · ${activeTicket.ticketNumber}',
                           style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
@@ -394,17 +400,21 @@ class _PosCartHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSizes.padding / 2),
-                  AppButton(
+                  if (state.businessProfile?.showServicePoints ?? true)
+                    AppButton(
                     height: 26,
                     borderRadius: BorderRadius.circular(4),
                     padding: const EdgeInsets.symmetric(horizontal: AppSizes.padding / 2),
                     buttonColor: Theme.of(context).colorScheme.surface,
                     borderColor: Theme.of(context).colorScheme.primary,
                     textColor: Theme.of(context).colorScheme.primary,
-                    text: activeTicket == null ? 'Table optional' : 'Edit table',
+                    text: activeTicket == null
+                        ? '${state.vocabulary.servicePoint} optional'
+                        : 'Edit ${state.vocabulary.servicePoint.toLowerCase()}',
                     onTap: () => _showTableDialog(context, activeTicket?.tableNumber),
                   ),
-                  const SizedBox(width: AppSizes.padding / 2),
+                  if (state.businessProfile?.showServicePoints ?? true)
+                    const SizedBox(width: AppSizes.padding / 2),
                   AppButton(
                     height: 26,
                     borderRadius: BorderRadius.circular(4),
@@ -442,7 +452,8 @@ class _PosCartHeader extends StatelessWidget {
   }
 
   void _showTableDialog(BuildContext context, String? currentTableNumber) {
-    final activeTicket = context.read<PosBloc>().state.activeTicket;
+    final state = context.read<PosBloc>().state;
+    final activeTicket = state.activeTicket;
 
     if (activeTicket == null) {
       AppSnackBar.show('Add an item to the cart first.');
@@ -451,15 +462,16 @@ class _PosCartHeader extends StatelessWidget {
 
     final isWalkIn = (currentTableNumber ?? 'Walk-in') == 'Walk-in';
     final controller = TextEditingController(text: isWalkIn ? '' : currentTableNumber ?? '');
+    final servicePoint = state.vocabulary.servicePoint;
 
     AppDialog.show(
-      title: 'Assign table number',
+      title: 'Assign ${servicePoint.toLowerCase()}',
       leftButtonText: 'Cancel',
       rightButtonText: 'Save',
       child: AppTextField(
         controller: controller,
-        labelText: 'Table number (optional)',
-        hintText: 'Leave empty for walk-in',
+        labelText: '$servicePoint (optional)',
+        hintText: 'Leave empty for ${state.walkInLabel().toLowerCase()}',
       ),
       onTapRightButton: (dialogContext) {
         context.read<PosBloc>().add(PosActiveTicketTableChanged(controller.text.trim()));
@@ -479,9 +491,12 @@ class _PosCartPanel extends StatelessWidget {
     return BlocBuilder<PosBloc, PosState>(
       builder: (context, state) {
         if (state.activeTicket == null) {
-          return const SizedBox(
+          return SizedBox(
             height: 200,
-            child: AppEmptyState(title: 'No ticket', subtitle: 'Open a table ticket.'),
+            child: AppEmptyState(
+              title: 'No ${state.vocabulary.ticket.toLowerCase()}',
+              subtitle: state.vocabulary.newOrderAction,
+            ),
           );
         }
 
@@ -603,7 +618,7 @@ class _PosCartFooter extends StatelessWidget {
                       ? 'Cart'
                       : activeTicket == null
                       ? '${state.cartLines.length} items · ${CurrencyFormatter.format(state.cartTotal)}'
-                      : '${state.activeTableNumber == 'Walk-in' ? 'Walk-in' : 'Table ${state.activeTableNumber}'} · ${CurrencyFormatter.format(state.cartTotal)}',
+                      : '${state.displayServicePoint(state.activeTableNumber)} · ${CurrencyFormatter.format(state.cartTotal)}',
                   enabled: !isCheckingOut,
                   onTap: () {
                     if (activeTicket == null) {
@@ -724,7 +739,8 @@ class _PosCartFooter extends StatelessWidget {
     required bool selectedOnly,
     Map<String, int>? splitQuantities,
   }) {
-    final methods = context.read<PosBloc>().state.enabledPaymentMethods;
+    final state = context.read<PosBloc>().state;
+    final methods = state.enabledPaymentMethods;
 
     if (methods.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -752,7 +768,7 @@ class _PosCartFooter extends StatelessWidget {
     final amountController = TextEditingController(text: total.toStringAsFixed(2));
 
     AppDialog.show(
-      title: selectedOnly ? 'Split payment' : 'Pay ticket',
+      title: selectedOnly ? 'Split payment' : 'Pay ${state.vocabulary.ticket.toLowerCase()}',
       leftButtonText: 'Cancel',
       child: StatefulBuilder(
         builder: (context, setState) {

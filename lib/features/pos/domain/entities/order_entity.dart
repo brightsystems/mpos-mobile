@@ -109,6 +109,8 @@ class OrderEntity extends Equatable {
     this.customerName,
     this.tableNumber,
     this.ticketNumber,
+    this.source,
+    this.assignedBranchMemberUserId,
     this.createdAt,
   });
 
@@ -125,6 +127,8 @@ class OrderEntity extends Equatable {
   final String? customerName;
   final String? tableNumber;
   final String? ticketNumber;
+  final String? source;
+  final String? assignedBranchMemberUserId;
   final DateTime? createdAt;
 
   List<OrderLineEntity> get unpaidLines => lines.where((line) => !line.isPaid).toList();
@@ -148,6 +152,8 @@ class OrderEntity extends Equatable {
     String? customerName,
     String? tableNumber,
     String? ticketNumber,
+    String? source,
+    String? assignedBranchMemberUserId,
     DateTime? createdAt,
   }) {
     return OrderEntity(
@@ -164,6 +170,8 @@ class OrderEntity extends Equatable {
       customerName: customerName ?? this.customerName,
       tableNumber: tableNumber ?? this.tableNumber,
       ticketNumber: ticketNumber ?? this.ticketNumber,
+      source: source ?? this.source,
+      assignedBranchMemberUserId: assignedBranchMemberUserId ?? this.assignedBranchMemberUserId,
       createdAt: createdAt ?? this.createdAt,
     );
   }

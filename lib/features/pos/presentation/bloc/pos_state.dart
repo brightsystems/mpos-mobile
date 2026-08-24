@@ -1,9 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/dining_table_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 
 enum PosStatus { initial, loading, ready, checkingOut, success, failure }
@@ -25,6 +27,8 @@ class PosState extends Equatable {
     this.enableCash = true,
     this.enableChapa = true,
     this.enableTelebirr = false,
+    this.workflowSettings,
+    this.businessProfile,
   });
 
   final PosStatus status;
@@ -42,6 +46,13 @@ class PosState extends Equatable {
   final bool enableCash;
   final bool enableChapa;
   final bool enableTelebirr;
+  final OrderWorkflowSettingsEntity? workflowSettings;
+  final BusinessProfileEntity? businessProfile;
+
+  BusinessTypeVocabulary get vocabulary =>
+      businessProfile?.vocabulary ?? BusinessTypeVocabulary.cafeteria;
+
+  String walkInLabel() => vocabulary.walkIn;
 
   List<({String value, String label})> get enabledPaymentMethods {
     final methods = <({String value, String label})>[];
@@ -93,6 +104,22 @@ class PosState extends Equatable {
     result.sort((a, b) => a.tableNumber.compareTo(b.tableNumber));
 
     return result;
+  }
+
+  String displayServicePoint(String? tableNumber) {
+    final value = tableNumber ?? 'Walk-in';
+    if (value == 'Walk-in') {
+      return walkInLabel();
+    }
+    return value;
+  }
+
+  String servicePointChipLabel(String tableNumber) {
+    if (tableNumber == 'Walk-in') {
+      return walkInLabel();
+    }
+    final prefix = vocabulary.servicePoint;
+    return '$prefix $tableNumber';
   }
 
   double get cartSubtotal => cartLines.fold<double>(0, (sum, line) => sum + line.remainingLineTotal);
@@ -148,6 +175,8 @@ class PosState extends Equatable {
     bool? enableCash,
     bool? enableChapa,
     bool? enableTelebirr,
+    OrderWorkflowSettingsEntity? workflowSettings,
+    BusinessProfileEntity? businessProfile,
     bool clearError = false,
     bool clearLastOrder = false,
     bool clearLastInvoice = false,
@@ -169,6 +198,8 @@ class PosState extends Equatable {
       enableCash: enableCash ?? this.enableCash,
       enableChapa: enableChapa ?? this.enableChapa,
       enableTelebirr: enableTelebirr ?? this.enableTelebirr,
+      workflowSettings: workflowSettings ?? this.workflowSettings,
+      businessProfile: businessProfile ?? this.businessProfile,
     );
   }
 
@@ -189,5 +220,7 @@ class PosState extends Equatable {
     enableCash,
     enableChapa,
     enableTelebirr,
+    workflowSettings,
+    businessProfile,
   ];
 }

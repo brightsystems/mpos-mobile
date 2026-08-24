@@ -41,10 +41,11 @@ class MposApiClient {
 
   Future<ApiResponse<T>> delete<T>(
     String path, {
+    Map<String, dynamic>? body,
     bool authenticated = false,
     T Function(Object? json)? fromJson,
   }) async {
-    return _request('DELETE', path, authenticated: authenticated, fromJson: fromJson);
+    return _request('DELETE', path, body: body, authenticated: authenticated, fromJson: fromJson);
   }
 
   Future<ApiResponse<T>> _request<T>(
@@ -53,6 +54,7 @@ class MposApiClient {
     Map<String, dynamic>? body,
     bool authenticated = false,
     T Function(Object? json)? fromJson,
+    bool isRetry = false,
   }) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -68,8 +70,14 @@ class MposApiClient {
       }
 
       headers['Authorization'] = 'Bearer ${session.accessToken}';
-      headers['X-Organization-Id'] = session.organizationId;
-      headers['X-Branch-Id'] = session.branchId;
+
+      if (session.organizationId.isNotEmpty) {
+        headers['X-Organization-Id'] = session.organizationId;
+      }
+
+      if (session.branchId.isNotEmpty) {
+        headers['X-Branch-Id'] = session.branchId;
+      }
     }
 
     try {
@@ -79,6 +87,15 @@ class MposApiClient {
       }
 
       final response = await _httpClient.send(request).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401 && authenticated && !isRetry) {
+        final refreshed = await _tryRefreshSession();
+
+        if (refreshed) {
+          return _request(method, path, body: body, authenticated: authenticated, fromJson: fromJson, isRetry: true);
+        }
+      }
+
       final responseBody = await response.stream.bytesToString().timeout(const Duration(seconds: 15));
 
       if (responseBody.isEmpty) {
@@ -118,6 +135,55 @@ class MposApiClient {
         );
       }
       return ApiResponse(success: false, message: message);
+    }
+  }
+
+  /// Attempts a single token refresh using the stored refresh token and device
+  /// id. On success the stored session is updated with fresh tokens; on failure
+  /// the session is cleared so the app returns to the login screen.
+  Future<bool> _tryRefreshSession() async {
+    final session = await _sessionStorage.loadSession();
+
+    if (session == null || session.refreshToken.isEmpty) {
+      return false;
+    }
+
+    try {
+      final request = http.Request('POST', _uri('/auth/refresh'))
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'X-App-Id': MposConfig.appId,
+          'X-App-Secret': MposConfig.appSecret,
+        })
+        ..body = jsonEncode({'refreshToken': session.refreshToken, 'deviceId': session.deviceId});
+
+      final response = await _httpClient.send(request).timeout(const Duration(seconds: 15));
+      final responseBody = await response.stream.bytesToString().timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200 || responseBody.isEmpty) {
+        await _sessionStorage.clearSession();
+        return false;
+      }
+
+      final decoded = jsonDecode(responseBody);
+      if (decoded is! Map<String, dynamic> || decoded['success'] != true) {
+        await _sessionStorage.clearSession();
+        return false;
+      }
+
+      final data = Map<String, dynamic>.from((decoded['data'] ?? decoded['Data']) as Map);
+
+      final updated = session.copyWith(
+        accessToken: (data['accessToken'] ?? data['AccessToken']) as String?,
+        refreshToken: (data['refreshToken'] ?? data['RefreshToken']) as String?,
+        expiresInSeconds: (data['expiresInSeconds'] ?? data['ExpiresInSeconds']) as int?,
+      );
+
+      await _sessionStorage.saveSession(updated);
+
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 }

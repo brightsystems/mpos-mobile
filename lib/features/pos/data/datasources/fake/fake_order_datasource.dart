@@ -1,7 +1,9 @@
 import 'package:mpos_mobile/core/mock/mock_fixtures.dart';
-import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
-import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 
 class FakeOrderDatasource implements OrderDatasource {
   int _orderSequence = 1;
@@ -36,7 +38,7 @@ class FakeOrderDatasource implements OrderDatasource {
       id: id,
       branchId: branchId,
       orderNumber: 'MOCK-${id.substring(id.length - 4)}',
-      status: 'Open',
+      status: 'Draft',
       subtotal: 0,
       taxAmount: 0,
       totalAmount: 0,
@@ -314,6 +316,46 @@ class FakeOrderDatasource implements OrderDatasource {
     await _simulateNetwork();
 
     return _requireOrder(orderId);
+  }
+
+  @override
+  Future<OrderEntity> submitOrder({
+    required String orderId,
+    required String customerPhone,
+    String? customerName,
+  }) async {
+    await _simulateNetwork();
+    final order = _requireOrder(orderId);
+    final updated = order.copyWith(
+      status: 'Submitted',
+      customerPhone: customerPhone,
+      customerName: customerName,
+    );
+    _orders[orderId] = updated;
+    return updated;
+  }
+
+  @override
+  Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId}) async {
+    await _simulateNetwork();
+    return OrderWorkflowSettingsEntity(
+      organizationId: 'mock-org',
+      branchId: branchId,
+      usesBranchOverride: false,
+      workflowTemplate: 'DirectPos',
+      selfOrderEnabled: false,
+      selfOrderMode: 'TableQr',
+      requireCashierApproval: false,
+      allowWalkInQr: false,
+      requireTableForAssignment: false,
+      cashierCanAssumeOrder: true,
+    );
+  }
+
+  @override
+  Future<BusinessProfileEntity> getBusinessProfile({required String branchId}) async {
+    await _simulateNetwork();
+    return BusinessProfileEntity.cafeteria;
   }
 
   OrderEntity _requireOrder(String orderId) {

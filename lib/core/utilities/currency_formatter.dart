@@ -9,7 +9,7 @@ class CurrencyFormatter {
 
   static String format(num data, {int? decimalDigits}) {
     return NumberFormat.currency(
-      locale: AppLocale.defaultLocale.toString(),
+      locale: AppLocale.formattingLocale.toString(),
       name: AppLocale.defaultCurrencyCode,
       decimalDigits: decimalDigits ?? defaultDecimalDigits,
     ).format(data);
@@ -17,7 +17,7 @@ class CurrencyFormatter {
 
   static String compact(num data, {int? decimalDigits, bool withSymbol = true}) {
     return NumberFormat.compactCurrency(
-      locale: AppLocale.defaultLocale.toString(),
+      locale: AppLocale.formattingLocale.toString(),
       name: withSymbol ? AppLocale.defaultCurrencyCode : '',
       decimalDigits: decimalDigits ?? defaultDecimalDigits,
     ).format(data);
@@ -25,7 +25,7 @@ class CurrencyFormatter {
 
   static String withoutSymbol(num data, {int? decimalDigits}) {
     return NumberFormat.currency(
-      locale: AppLocale.defaultLocale.toString(),
+      locale: AppLocale.formattingLocale.toString(),
       decimalDigits: decimalDigits ?? defaultDecimalDigits,
       symbol: '',
     ).format(data);
