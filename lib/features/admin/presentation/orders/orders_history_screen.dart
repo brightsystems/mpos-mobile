@@ -9,6 +9,7 @@ import 'package:mpos_mobile/features/admin/domain/repositories/admin_repository.
 import 'package:mpos_mobile/features/admin/presentation/common/admin_dropdown_field.dart';
 import 'package:mpos_mobile/features/admin/presentation/common/admin_helpers.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/fiscal_memo_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/invoice_actions.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
@@ -649,6 +650,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   String? _error;
   OrderDetailModel? _detail;
   FiscalInvoiceEntity? _invoice;
+  List<FiscalMemoEntity> _memos = const [];
 
   @override
   void initState() {
@@ -659,10 +661,14 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   Future<void> _load() async {
     final result = await _repository.getOrder(widget.orderId);
     final invoiceResult = await _invoiceRepository.getForOrder(widget.orderId);
+    final memosResult = invoiceResult.isSuccess
+        ? await _invoiceRepository.listMemos(widget.orderId)
+        : null;
     if (!mounted) return;
     setState(() {
       _loading = false;
       _invoice = invoiceResult.isSuccess ? invoiceResult.data : null;
+      _memos = memosResult?.data ?? const [];
       if (result.isSuccess) {
         _detail = result.data;
       } else {
@@ -817,6 +823,67 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               ),
               icon: Icon(Icons.cancel_outlined, size: 18, color: colorScheme.error),
               label: Text('Cancel e-invoice', style: TextStyle(color: colorScheme.error)),
+            ),
+          ),
+        const SizedBox(height: AppSizes.padding / 2),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Credit/debit notes', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            ),
+            if (invoice.isSubmitted && (_detail?.lines.isNotEmpty ?? false))
+              TextButton.icon(
+                onPressed: () => showRegisterMemoDialog(
+                  context,
+                  orderId: widget.orderId,
+                  lines: [
+                    for (final line in _detail!.lines)
+                      (id: line.id, name: line.name, maxQuantity: line.quantity, unitPrice: line.unitPrice),
+                  ],
+                  onRegistered: (memo) {
+                    if (mounted) {
+                      setState(() => _memos = [..._memos, memo]);
+                    }
+                  },
+                ),
+                icon: const Icon(Icons.note_add_outlined, size: 18),
+                label: const Text('New'),
+              ),
+          ],
+        ),
+        if (_memos.isEmpty)
+          Text('No memos issued.', style: textTheme.bodySmall?.copyWith(color: colorScheme.outline))
+        else
+          ..._memos.map(
+            (memo) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${memo.typeLabel} #${memo.documentNumber ?? '—'} · ${memo.status}',
+                          style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          '${memo.reason} · ${CurrencyFormatter.format(memo.totalValue)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Memo PDF',
+                    onPressed: () => shareMemoPdf(context, orderId: widget.orderId, memoId: memo.id),
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                  ),
+                ],
+              ),
             ),
           ),
         const SizedBox(height: AppSizes.padding),

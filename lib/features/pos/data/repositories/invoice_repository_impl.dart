@@ -3,6 +3,7 @@ import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/invoice_datasource.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_document_pdf_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/fiscal_memo_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
 
@@ -105,6 +106,49 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId) async {
     try {
       final pdf = await _datasource.getReceiptPdf(orderId);
+
+      return Result.success(data: pdf);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<List<FiscalMemoEntity>>> listMemos(String orderId) async {
+    try {
+      final memos = await _datasource.listMemos(orderId);
+
+      return Result.success(data: memos);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalMemoEntity>> registerMemo({
+    required String orderId,
+    required String memoType,
+    required String reason,
+    required List<({String orderLineId, int quantity})> lines,
+  }) async {
+    try {
+      final memo = await _datasource.registerMemo(
+        orderId: orderId,
+        memoType: memoType,
+        reason: reason,
+        lines: lines,
+      );
+
+      return Result.success(data: memo);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalDocumentPdfEntity>> getMemoPdf({required String orderId, required String memoId}) async {
+    try {
+      final pdf = await _datasource.getMemoPdf(orderId: orderId, memoId: memoId);
 
       return Result.success(data: pdf);
     } catch (e) {
