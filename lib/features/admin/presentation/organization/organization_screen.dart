@@ -129,6 +129,10 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
       AppSnackBar.showError('Name, legal name, TIN, VAT, email, phone, and wereda are required.');
       return;
     }
+    if (!RegExp(r'^\d{10}$').hasMatch(_tin.text.trim())) {
+      AppSnackBar.showError('TIN must be exactly 10 digits.');
+      return;
+    }
 
     final body = <String, dynamic>{
       'name': _name.text.trim(),

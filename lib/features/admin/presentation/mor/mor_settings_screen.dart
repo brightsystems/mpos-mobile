@@ -37,6 +37,9 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
   final _clientId = TextEditingController();
   final _clientSecret = TextEditingController();
   final _apiKey = TextEditingController();
+  bool _hasClientId = false;
+  bool _hasClientSecret = false;
+  bool _hasApiKey = false;
 
   @override
   void initState() {
@@ -68,8 +71,10 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
           _systemNumber.text = m.systemNumber;
           _systemType.text = m.systemType ?? 'POS';
           _baseUrl.text = m.morBaseUrl ?? '';
-          _clientId.text = m.morClientId ?? '';
-          _apiKey.text = m.morApiKey ?? '';
+          // Credentials are never returned by the API — only presence flags.
+          _hasClientId = m.hasClientId || (m.morClientId?.isNotEmpty ?? false);
+          _hasClientSecret = m.hasClientSecret;
+          _hasApiKey = m.hasApiKey || (m.morApiKey?.isNotEmpty ?? false);
         }
       } else {
         _error = result.error?.toString();
@@ -116,6 +121,15 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
       () => _repository.updateMorSettings(_orgId, body),
       successMessage: 'MOR settings saved.',
     );
+    if (!mounted) return;
+    setState(() {
+      if (_clientId.text.trim().isNotEmpty) _hasClientId = true;
+      if (_clientSecret.text.trim().isNotEmpty) _hasClientSecret = true;
+      if (_apiKey.text.trim().isNotEmpty) _hasApiKey = true;
+      _clientId.clear();
+      _clientSecret.clear();
+      _apiKey.clear();
+    });
   }
 
   @override
@@ -143,11 +157,25 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: AppSizes.padding / 2),
-                AppTextField(controller: _clientId, labelText: 'Client id (optional)'),
+                AppTextField(
+                  controller: _clientId,
+                  labelText: 'Client id (optional)',
+                  hintText: _hasClientId ? 'Saved — leave blank to keep' : null,
+                ),
                 const SizedBox(height: AppSizes.padding / 2),
-                AppTextField(controller: _clientSecret, labelText: 'Client secret (optional)', obscureText: true),
+                AppTextField(
+                  controller: _clientSecret,
+                  labelText: 'Client secret (optional)',
+                  obscureText: true,
+                  hintText: _hasClientSecret ? '•••••• Saved — leave blank to keep' : null,
+                ),
                 const SizedBox(height: AppSizes.padding / 2),
-                AppTextField(controller: _apiKey, labelText: 'API key (optional)', obscureText: true),
+                AppTextField(
+                  controller: _apiKey,
+                  labelText: 'API key (optional)',
+                  obscureText: true,
+                  hintText: _hasApiKey ? '•••••• Saved — leave blank to keep' : null,
+                ),
                 const SizedBox(height: AppSizes.padding / 2),
                 AppTextField(controller: _baseUrl, labelText: 'MOR base URL (optional)'),
                 const SizedBox(height: AppSizes.padding),

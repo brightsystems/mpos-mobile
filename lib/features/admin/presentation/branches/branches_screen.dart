@@ -9,6 +9,7 @@ import 'package:mpos_mobile/features/auth/domain/rbac.dart';
 import 'package:mpos_mobile/shared/widgets/app_button.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
 import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
+import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
 import 'package:mpos_mobile/shared/widgets/app_text_field.dart';
 
 class BranchesScreen extends StatefulWidget {
@@ -161,6 +162,7 @@ class _BranchEditorState extends State<_BranchEditor> {
   late final TextEditingController _city;
   late final TextEditingController _phone;
   late final TextEditingController _address;
+  late final TextEditingController _tin;
 
   @override
   void initState() {
@@ -169,6 +171,7 @@ class _BranchEditorState extends State<_BranchEditor> {
     _city = TextEditingController(text: widget.existing?.city ?? '');
     _phone = TextEditingController(text: widget.existing?.phone ?? '');
     _address = TextEditingController(text: widget.existing?.address ?? '');
+    _tin = TextEditingController(text: widget.existing?.tin ?? '');
   }
 
   @override
@@ -177,15 +180,22 @@ class _BranchEditorState extends State<_BranchEditor> {
     _city.dispose();
     _phone.dispose();
     _address.dispose();
+    _tin.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final tin = _tin.text.trim();
+    if (tin.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(tin)) {
+      AppSnackBar.showError('Branch TIN must be exactly 10 digits (or left empty to use the organization TIN).');
+      return;
+    }
     final body = <String, dynamic>{
       'name': _name.text.trim(),
       if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
       if (_phone.text.trim().isNotEmpty) 'phone': _phone.text.trim(),
       if (_address.text.trim().isNotEmpty) 'address': _address.text.trim(),
+      'tin': tin.isEmpty ? null : tin,
       'timezone': 'Africa/Addis_Ababa',
       if (widget.existing != null) 'isActive': widget.existing!.isActive,
     };
@@ -226,6 +236,12 @@ class _BranchEditorState extends State<_BranchEditor> {
           AppTextField(controller: _phone, labelText: 'Phone (optional)', keyboardType: TextInputType.phone),
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _address, labelText: 'Address (optional)'),
+          const SizedBox(height: AppSizes.padding / 2),
+          AppTextField(
+            controller: _tin,
+            labelText: 'Branch TIN (optional, 10 digits)',
+            keyboardType: TextInputType.number,
+          ),
           const SizedBox(height: AppSizes.padding),
           AppButton(text: 'Save branch', onTap: _save),
         ],

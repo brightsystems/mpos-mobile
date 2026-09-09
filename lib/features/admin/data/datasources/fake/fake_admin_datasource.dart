@@ -245,9 +245,10 @@ class FakeAdminDatasource implements AdminDatasource {
       systemNumber: (body['systemNumber'] as String?) ?? '',
       systemType: body['systemType'] as String?,
       morBaseUrl: body['morBaseUrl'] as String?,
-      morClientId: body['morClientId'] as String?,
-      morApiKey: body['morApiKey'] as String?,
       isConfigured: true,
+      hasClientId: body['morClientId'] != null || (_mor?.hasClientId ?? false),
+      hasClientSecret: body['morClientSecret'] != null || (_mor?.hasClientSecret ?? false),
+      hasApiKey: body['morApiKey'] != null || (_mor?.hasApiKey ?? false),
     );
     return _delay(_mor!);
   }

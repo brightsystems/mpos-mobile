@@ -199,6 +199,9 @@ class MorSettingsModel {
     this.systemType,
     this.morBaseUrl,
     this.isConfigured = false,
+    this.hasClientId = false,
+    this.hasClientSecret = false,
+    this.hasApiKey = false,
   });
 
   factory MorSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -215,6 +218,9 @@ class MorSettingsModel {
       systemType: opt('systemType'),
       morBaseUrl: opt('morBaseUrl'),
       isConfigured: reader.boolean('isConfigured'),
+      hasClientId: reader.boolean('hasClientId'),
+      hasClientSecret: reader.boolean('hasClientSecret'),
+      hasApiKey: reader.boolean('hasApiKey'),
     );
   }
 
@@ -224,6 +230,9 @@ class MorSettingsModel {
   final String? systemType;
   final String? morBaseUrl;
   final bool isConfigured;
+  final bool hasClientId;
+  final bool hasClientSecret;
+  final bool hasApiKey;
 }
 
 class BankAccountModel {
