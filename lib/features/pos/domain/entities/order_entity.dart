@@ -11,6 +11,7 @@ class OrderLineEntity extends Equatable {
     required this.quantity,
     required this.lineTotal,
     this.paidQuantity = 0,
+    this.discount = 0,
     this.taxes = const [],
     this.imageUrl,
     this.stockOnHand,
@@ -24,6 +25,7 @@ class OrderLineEntity extends Equatable {
   final double quantity;
   final double lineTotal;
   final double paidQuantity;
+  final double discount;
   final List<TaxRateEntity> taxes;
   final String? imageUrl;
   final double? stockOnHand;
@@ -36,15 +38,20 @@ class OrderLineEntity extends Equatable {
       return 0;
     }
 
-    return unitPrice * remainingQuantity;
+    // Discount is a whole-line amount; apportion it to the unpaid quantity.
+    final proportionalDiscount = discount * (remainingQuantity / quantity);
+    final total = unitPrice * remainingQuantity - proportionalDiscount;
+
+    return total < 0 ? 0 : total;
   }
 
   double get remainingTaxAmount => calculateTaxesAmount(remainingLineTotal, taxes);
 
   bool get isPaid => remainingQuantity <= 0;
 
-  OrderLineEntity copyWith({double? quantity, double? paidQuantity, List<TaxRateEntity>? taxes}) {
+  OrderLineEntity copyWith({double? quantity, double? paidQuantity, double? discount, List<TaxRateEntity>? taxes}) {
     final nextQuantity = quantity ?? this.quantity;
+    final nextDiscount = discount ?? this.discount;
 
     return OrderLineEntity(
       id: id,
@@ -52,8 +59,9 @@ class OrderLineEntity extends Equatable {
       name: name,
       unitPrice: unitPrice,
       quantity: nextQuantity,
-      lineTotal: unitPrice * nextQuantity,
+      lineTotal: (unitPrice * nextQuantity - nextDiscount).clamp(0, double.infinity),
       paidQuantity: paidQuantity ?? this.paidQuantity,
+      discount: nextDiscount,
       taxes: taxes ?? this.taxes,
       imageUrl: imageUrl,
       stockOnHand: stockOnHand,
@@ -62,7 +70,7 @@ class OrderLineEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, menuItemId, quantity, paidQuantity, taxes];
+  List<Object?> get props => [id, menuItemId, quantity, paidQuantity, discount, taxes];
 }
 
 class OrderPaymentEntity extends Equatable {
@@ -107,6 +115,7 @@ class OrderEntity extends Equatable {
     required this.payments,
     this.customerPhone,
     this.customerName,
+    this.customerTin,
     this.tableNumber,
     this.ticketNumber,
     this.source,
@@ -125,6 +134,7 @@ class OrderEntity extends Equatable {
   final List<OrderPaymentEntity> payments;
   final String? customerPhone;
   final String? customerName;
+  final String? customerTin;
   final String? tableNumber;
   final String? ticketNumber;
   final String? source;
@@ -150,6 +160,7 @@ class OrderEntity extends Equatable {
     List<OrderPaymentEntity>? payments,
     String? customerPhone,
     String? customerName,
+    String? customerTin,
     String? tableNumber,
     String? ticketNumber,
     String? source,
@@ -168,6 +179,7 @@ class OrderEntity extends Equatable {
       payments: payments ?? this.payments,
       customerPhone: customerPhone ?? this.customerPhone,
       customerName: customerName ?? this.customerName,
+      customerTin: customerTin ?? this.customerTin,
       tableNumber: tableNumber ?? this.tableNumber,
       ticketNumber: ticketNumber ?? this.ticketNumber,
       source: source ?? this.source,

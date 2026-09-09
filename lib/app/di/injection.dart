@@ -124,6 +124,7 @@ Future<void> configureDependencies(SharedPreferences sharedPreferences) async {
     getIt.registerLazySingleton(() => CreateTicketUsecase(getIt<OrderRepository>()));
     getIt.registerLazySingleton(() => AddItemToTicketUsecase(getIt<OrderRepository>()));
     getIt.registerLazySingleton(() => UpdateTicketLineQuantityUsecase(getIt<OrderRepository>()));
+    getIt.registerLazySingleton(() => UpdateTicketLineDiscountUsecase(getIt<OrderRepository>()));
     getIt.registerLazySingleton(() => RemoveTicketLineUsecase(getIt<OrderRepository>()));
     getIt.registerLazySingleton(() => UpdateTicketTableNumberUsecase(getIt<OrderRepository>()));
     getIt.registerLazySingleton(() => SettleTicketUsecase(getIt<OrderRepository>()));
@@ -152,6 +153,7 @@ Future<void> configureDependencies(SharedPreferences sharedPreferences) async {
         createTicketUsecase: getIt<CreateTicketUsecase>(),
         addItemToTicketUsecase: getIt<AddItemToTicketUsecase>(),
         updateTicketLineQuantityUsecase: getIt<UpdateTicketLineQuantityUsecase>(),
+        updateTicketLineDiscountUsecase: getIt<UpdateTicketLineDiscountUsecase>(),
         removeTicketLineUsecase: getIt<RemoveTicketLineUsecase>(),
         updateTicketTableNumberUsecase: getIt<UpdateTicketTableNumberUsecase>(),
         settleTicketUsecase: getIt<SettleTicketUsecase>(),

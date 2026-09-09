@@ -83,6 +83,16 @@ class PosLineRemoved extends PosEvent {
   List<Object?> get props => [lineId];
 }
 
+class PosLineDiscountChanged extends PosEvent {
+  const PosLineDiscountChanged(this.lineId, this.discount);
+
+  final String lineId;
+  final double discount;
+
+  @override
+  List<Object?> get props => [lineId, discount];
+}
+
 class PosSplitQuantityChanged extends PosEvent {
   const PosSplitQuantityChanged(this.lineId, this.quantity);
 
@@ -112,6 +122,7 @@ class PosCheckoutRequested extends PosEvent {
     required this.paymentMethod,
     required this.customerPhone,
     this.customerName,
+    this.customerTin,
     this.receivedAmount,
     this.selectedOnly = false,
     this.splitQuantities,
@@ -121,6 +132,7 @@ class PosCheckoutRequested extends PosEvent {
   final String paymentMethod;
   final String customerPhone;
   final String? customerName;
+  final String? customerTin;
   final double? receivedAmount;
   final bool selectedOnly;
   final Map<String, int>? splitQuantities;
@@ -131,6 +143,7 @@ class PosCheckoutRequested extends PosEvent {
     paymentMethod,
     customerPhone,
     customerName,
+    customerTin,
     receivedAmount,
     selectedOnly,
     splitQuantities,

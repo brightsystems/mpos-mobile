@@ -1,6 +1,7 @@
 import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/invoice_datasource.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/fiscal_document_pdf_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
@@ -58,6 +59,54 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       return Result.failure(
         error: lastError ?? 'E-invoice is unavailable (MOR may not be configured).',
       );
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalInvoiceEntity>> getForOrder(String orderId) async {
+    try {
+      final invoice = await _datasource.getForOrder(orderId);
+
+      return Result.success(data: invoice);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalInvoiceEntity>> cancelInvoice({
+    required String orderId,
+    required String reasonCode,
+    String? remark,
+  }) async {
+    try {
+      final invoice = await _datasource.cancelInvoice(orderId: orderId, reasonCode: reasonCode, remark: remark);
+
+      return Result.success(data: invoice);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalDocumentPdfEntity>> getInvoicePdf(String orderId) async {
+    try {
+      final pdf = await _datasource.getInvoicePdf(orderId);
+
+      return Result.success(data: pdf);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId) async {
+    try {
+      final pdf = await _datasource.getReceiptPdf(orderId);
+
+      return Result.success(data: pdf);
     } catch (e) {
       return Result.failure(error: e);
     }

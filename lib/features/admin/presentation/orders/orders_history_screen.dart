@@ -8,6 +8,9 @@ import 'package:mpos_mobile/features/admin/data/models/admin_models.dart';
 import 'package:mpos_mobile/features/admin/domain/repositories/admin_repository.dart';
 import 'package:mpos_mobile/features/admin/presentation/common/admin_dropdown_field.dart';
 import 'package:mpos_mobile/features/admin/presentation/common/admin_helpers.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/invoice_actions.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
 import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
 
@@ -641,9 +644,11 @@ class _OrderDetailSheet extends StatefulWidget {
 
 class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   final _repository = getIt<AdminRepository>();
+  final _invoiceRepository = getIt<InvoiceRepository>();
   bool _loading = true;
   String? _error;
   OrderDetailModel? _detail;
+  FiscalInvoiceEntity? _invoice;
 
   @override
   void initState() {
@@ -653,9 +658,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
 
   Future<void> _load() async {
     final result = await _repository.getOrder(widget.orderId);
+    final invoiceResult = await _invoiceRepository.getForOrder(widget.orderId);
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _invoice = invoiceResult.isSuccess ? invoiceResult.data : null;
       if (result.isSuccess) {
         _detail = result.data;
       } else {
@@ -744,10 +751,76 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         ),
                       ),
                     const SizedBox(height: AppSizes.padding),
+                    if (_invoice != null) _buildInvoiceSection(context),
                   ],
                 ),
               ),
       ),
+    );
+  }
+
+  Widget _buildInvoiceSection(BuildContext context) {
+    final invoice = _invoice!;
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('E-invoice', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 8),
+            _StatusTag(status: invoice.status),
+          ],
+        ),
+        const SizedBox(height: AppSizes.padding / 2),
+        if (invoice.irn != null) _DetailRow(label: 'IRN', value: invoice.irn!),
+        if (invoice.documentNumber != null) _DetailRow(label: 'Document #', value: invoice.documentNumber!),
+        if (invoice.isCancelled) ...[
+          if (invoice.cancelledAt != null)
+            _DetailRow(label: 'Cancelled', value: DateFormat('d MMM y, HH:mm').format(invoice.cancelledAt!.toLocal())),
+          if (invoice.cancellationRemark != null) _DetailRow(label: 'Remark', value: invoice.cancellationRemark!),
+        ],
+        const SizedBox(height: AppSizes.padding / 2),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => shareInvoicePdf(context, widget.orderId),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                label: const Text('Invoice PDF'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => shareReceiptPdf(context, widget.orderId),
+                icon: const Icon(Icons.receipt_outlined, size: 18),
+                label: const Text('Receipt PDF'),
+              ),
+            ),
+          ],
+        ),
+        if (invoice.isSubmitted)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => showCancelInvoiceDialog(
+                context,
+                orderId: widget.orderId,
+                onCancelled: (cancelled) {
+                  if (mounted) {
+                    setState(() => _invoice = cancelled);
+                  }
+                },
+              ),
+              icon: Icon(Icons.cancel_outlined, size: 18, color: colorScheme.error),
+              label: Text('Cancel e-invoice', style: TextStyle(color: colorScheme.error)),
+            ),
+          ),
+        const SizedBox(height: AppSizes.padding),
+      ],
     );
   }
 

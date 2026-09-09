@@ -62,11 +62,16 @@ class OrderRemoteDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> addOrderLine({required String orderId, required String menuItemId, required int quantity}) async {
+  Future<OrderEntity> addOrderLine({
+    required String orderId,
+    required String menuItemId,
+    required int quantity,
+    double? discount,
+  }) async {
     final response = await _client.post(
       '/orders/$orderId/lines',
       authenticated: true,
-      body: {'menuItemId': menuItemId, 'quantity': quantity},
+      body: {'menuItemId': menuItemId, 'quantity': quantity, if (discount != null) 'discount': discount},
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -82,11 +87,12 @@ class OrderRemoteDatasource implements OrderDatasource {
     required String orderId,
     required String lineId,
     required int quantity,
+    double? discount,
   }) async {
     final response = await _client.put(
       '/orders/lines/$lineId',
       authenticated: true,
-      body: {'quantity': quantity},
+      body: {'quantity': quantity, if (discount != null) 'discount': discount},
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -286,6 +292,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     required String orderId,
     required String customerPhone,
     String? customerName,
+    String? customerTin,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/submit',
@@ -293,6 +300,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       body: {
         'customerPhone': customerPhone,
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
+        if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
       },
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
@@ -375,6 +383,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       totalAmount: reader.number('totalAmount'),
       customerPhone: reader.string('customerPhone').isEmpty ? null : reader.string('customerPhone'),
       customerName: reader.string('customerName').isEmpty ? null : reader.string('customerName'),
+      customerTin: reader.string('customerTin').isEmpty ? null : reader.string('customerTin'),
       lines: reader.listOfMaps('lines').map(_mapOrderLine).toList(),
       payments: reader.listOfMaps('payments').map(_mapPayment).toList(),
       tableNumber: reader.string('tableNumber').isEmpty ? null : reader.string('tableNumber'),
@@ -414,6 +423,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       quantity: reader.number('quantity'),
       lineTotal: reader.number('lineTotal'),
       paidQuantity: reader.number('paidQuantity'),
+      discount: reader.number('discount'),
       taxes: reader.listOfMaps('taxes').map(_mapLineTax).toList(),
       imageUrl: reader.string('imageUrl').isEmpty ? null : reader.string('imageUrl'),
       stockOnHand: reader.number('stockOnHand', fallback: -1) < 0 ? null : reader.number('stockOnHand'),

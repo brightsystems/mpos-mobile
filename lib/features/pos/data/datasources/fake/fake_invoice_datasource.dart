@@ -1,5 +1,6 @@
 import 'package:mpos_mobile/core/mock/mock_fixtures.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/invoice_datasource.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/fiscal_document_pdf_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 
@@ -57,5 +58,55 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
     }
 
     return invoice;
+  }
+
+  @override
+  Future<FiscalInvoiceEntity> cancelInvoice({
+    required String orderId,
+    required String reasonCode,
+    String? remark,
+  }) async {
+    await _simulateMor();
+
+    final invoice = _invoices[orderId];
+
+    if (invoice == null) {
+      throw 'E-invoice not found for this order.';
+    }
+
+    if (invoice.isCancelled) {
+      throw 'E-invoice is already cancelled.';
+    }
+
+    final cancelled = FiscalInvoiceEntity(
+      id: invoice.id,
+      orderId: invoice.orderId,
+      status: 'Cancelled',
+      irn: invoice.irn,
+      signedQr: invoice.signedQr,
+      salesReceiptRrn: invoice.salesReceiptRrn,
+      documentNumber: invoice.documentNumber,
+      transactionType: invoice.transactionType,
+      submittedAt: invoice.submittedAt,
+      notifiedAt: invoice.notifiedAt,
+      notificationPhone: invoice.notificationPhone,
+      cancelledAt: DateTime.now().toUtc(),
+      cancellationReasonCode: reasonCode,
+      cancellationRemark: remark,
+    );
+
+    _invoices[orderId] = cancelled;
+
+    return cancelled;
+  }
+
+  @override
+  Future<FiscalDocumentPdfEntity> getInvoicePdf(String orderId) async {
+    throw 'PDF documents are not available in mock mode.';
+  }
+
+  @override
+  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId) async {
+    throw 'PDF documents are not available in mock mode.';
   }
 }

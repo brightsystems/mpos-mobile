@@ -8,6 +8,7 @@ import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/invoice_actions.dart';
 import 'package:mpos_mobile/shared/widgets/app_dialog.dart';
 
 class PaymentSuccessDialog {
@@ -101,10 +102,17 @@ class PaymentSuccessDialog {
   }
 }
 
-class _InvoiceSection extends StatelessWidget {
+class _InvoiceSection extends StatefulWidget {
   const _InvoiceSection({required this.invoice});
 
   final FiscalInvoiceEntity invoice;
+
+  @override
+  State<_InvoiceSection> createState() => _InvoiceSectionState();
+}
+
+class _InvoiceSectionState extends State<_InvoiceSection> {
+  late FiscalInvoiceEntity invoice = widget.invoice;
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +145,18 @@ class _InvoiceSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSizes.padding),
-          if (invoice.isSubmitted) ...[
+          if (invoice.isSubmitted || invoice.isCancelled) ...[
+            if (invoice.isCancelled)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSizes.padding / 2),
+                child: Text(
+                  'This e-invoice has been cancelled with MoR.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             _InvoiceRow(label: 'IRN', value: invoice.irn ?? '—'),
             _InvoiceRow(label: 'Document #', value: invoice.documentNumber ?? '—'),
             _InvoiceRow(label: 'Type', value: invoice.transactionType ?? 'B2C'),
@@ -182,6 +201,45 @@ class _InvoiceSection extends StatelessWidget {
                   ),
                 ],
               ),
+            ],
+            if (!MposConfig.mockMode) ...[
+              const SizedBox(height: AppSizes.padding),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => shareInvoicePdf(context, invoice.orderId),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      label: const Text('Invoice PDF'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => shareReceiptPdf(context, invoice.orderId),
+                      icon: const Icon(Icons.receipt_outlined, size: 18),
+                      label: const Text('Receipt PDF'),
+                    ),
+                  ),
+                ],
+              ),
+              if (invoice.isSubmitted)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => showCancelInvoiceDialog(
+                      context,
+                      orderId: invoice.orderId,
+                      onCancelled: (cancelled) {
+                        if (mounted) {
+                          setState(() => invoice = cancelled);
+                        }
+                      },
+                    ),
+                    icon: Icon(Icons.cancel_outlined, size: 18, color: colorScheme.error),
+                    label: Text('Cancel e-invoice', style: TextStyle(color: colorScheme.error)),
+                  ),
+                ),
             ],
           ] else ...[
             Text(

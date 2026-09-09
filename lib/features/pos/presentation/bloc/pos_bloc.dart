@@ -24,6 +24,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     required CreateTicketUsecase createTicketUsecase,
     required AddItemToTicketUsecase addItemToTicketUsecase,
     required UpdateTicketLineQuantityUsecase updateTicketLineQuantityUsecase,
+    required UpdateTicketLineDiscountUsecase updateTicketLineDiscountUsecase,
     required RemoveTicketLineUsecase removeTicketLineUsecase,
     required UpdateTicketTableNumberUsecase updateTicketTableNumberUsecase,
     required SettleTicketUsecase settleTicketUsecase,
@@ -36,6 +37,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
        _createTicketUsecase = createTicketUsecase,
        _addItemToTicketUsecase = addItemToTicketUsecase,
        _updateTicketLineQuantityUsecase = updateTicketLineQuantityUsecase,
+       _updateTicketLineDiscountUsecase = updateTicketLineDiscountUsecase,
        _removeTicketLineUsecase = removeTicketLineUsecase,
        _updateTicketTableNumberUsecase = updateTicketTableNumberUsecase,
        _settleTicketUsecase = settleTicketUsecase,
@@ -52,6 +54,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<PosActiveTicketTableChanged>(_onActiveTicketTableChanged);
     on<PosItemAdded>(_onItemAdded);
     on<PosLineQuantityChanged>(_onLineQuantityChanged);
+    on<PosLineDiscountChanged>(_onLineDiscountChanged);
     on<PosLineRemoved>(_onLineRemoved);
     on<PosSplitQuantityChanged>(_onSplitQuantityChanged);
     on<PosCartCleared>(_onCartCleared);
@@ -66,6 +69,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   final CreateTicketUsecase _createTicketUsecase;
   final AddItemToTicketUsecase _addItemToTicketUsecase;
   final UpdateTicketLineQuantityUsecase _updateTicketLineQuantityUsecase;
+  final UpdateTicketLineDiscountUsecase _updateTicketLineDiscountUsecase;
   final RemoveTicketLineUsecase _removeTicketLineUsecase;
   final UpdateTicketTableNumberUsecase _updateTicketTableNumberUsecase;
   final SettleTicketUsecase _settleTicketUsecase;
@@ -288,6 +292,20 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     await _replaceOrderInState(emit, result, preserveSelection: true);
   }
 
+  Future<void> _onLineDiscountChanged(PosLineDiscountChanged event, Emitter<PosState> emit) async {
+    final activeTicket = state.activeTicket;
+
+    if (activeTicket == null) {
+      return;
+    }
+
+    final result = await _updateTicketLineDiscountUsecase(
+      UpdateTicketLineDiscountParams(orderId: activeTicket.id, lineId: event.lineId, discount: event.discount),
+    );
+
+    await _replaceOrderInState(emit, result, preserveSelection: true);
+  }
+
   Future<void> _onLineRemoved(PosLineRemoved event, Emitter<PosState> emit) async {
     final activeTicket = state.activeTicket;
 
@@ -346,6 +364,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         orderId: activeTicket.id,
         customerPhone: event.customerPhone,
         customerName: event.customerName,
+        customerTin: event.customerTin,
       );
 
       if (!submitted.isSuccess || submitted.data == null) {
@@ -377,6 +396,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         paymentMethod: event.paymentMethod,
         customerPhone: event.customerPhone,
         customerName: event.customerName,
+        customerTin: event.customerTin,
         receivedAmount: event.receivedAmount,
         lineQuantities: lineQuantities,
       ),

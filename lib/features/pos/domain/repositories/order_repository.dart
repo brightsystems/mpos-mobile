@@ -20,6 +20,12 @@ abstract class OrderRepository {
     required int quantity,
   });
 
+  Future<Result<OrderEntity>> updateTicketLineDiscount({
+    required String orderId,
+    required String lineId,
+    required double discount,
+  });
+
   Future<Result<OrderEntity>> removeTicketLine({required String orderId, required String lineId});
 
   Future<Result<OrderEntity>> updateTicketTableNumber({required String orderId, String? tableNumber});
@@ -40,6 +46,7 @@ abstract class OrderRepository {
     required String orderId,
     required String customerPhone,
     String? customerName,
+    String? customerTin,
   });
 
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({

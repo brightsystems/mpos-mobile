@@ -14,6 +14,9 @@ class FiscalInvoiceEntity extends Equatable {
     this.submittedAt,
     this.notifiedAt,
     this.notificationPhone,
+    this.cancelledAt,
+    this.cancellationReasonCode,
+    this.cancellationRemark,
   });
 
   final String id;
@@ -28,9 +31,14 @@ class FiscalInvoiceEntity extends Equatable {
   final DateTime? submittedAt;
   final DateTime? notifiedAt;
   final String? notificationPhone;
+  final DateTime? cancelledAt;
+  final String? cancellationReasonCode;
+  final String? cancellationRemark;
 
   bool get isSubmitted => status.toLowerCase() == 'submitted';
 
+  bool get isCancelled => status.toLowerCase() == 'cancelled';
+
   @override
-  List<Object?> get props => [id, orderId, status, irn, documentNumber];
+  List<Object?> get props => [id, orderId, status, irn, documentNumber, cancelledAt];
 }

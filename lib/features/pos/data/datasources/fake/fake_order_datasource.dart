@@ -55,7 +55,12 @@ class FakeOrderDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> addOrderLine({required String orderId, required String menuItemId, required int quantity}) async {
+  Future<OrderEntity> addOrderLine({
+    required String orderId,
+    required String menuItemId,
+    required int quantity,
+    double? discount,
+  }) async {
     await _simulateNetwork();
 
     final order = _requireOrder(orderId);
@@ -77,7 +82,8 @@ class FakeOrderDatasource implements OrderDatasource {
         name: menuItem.name,
         unitPrice: menuItem.price,
         quantity: quantity.toDouble(),
-        lineTotal: menuItem.price * quantity,
+        lineTotal: (menuItem.price * quantity - (discount ?? 0)).clamp(0, double.infinity),
+        discount: discount ?? 0,
         taxes: menuItem.taxes,
         imageUrl: menuItem.imageUrl,
         stockOnHand: menuItem.stockOnHand,
@@ -96,6 +102,7 @@ class FakeOrderDatasource implements OrderDatasource {
     required String orderId,
     required String lineId,
     required int quantity,
+    double? discount,
   }) async {
     await _simulateNetwork();
 
@@ -112,7 +119,7 @@ class FakeOrderDatasource implements OrderDatasource {
     if (quantity <= 0) {
       lines.removeAt(index);
     } else {
-      lines[index] = existing.copyWith(quantity: quantity.toDouble());
+      lines[index] = existing.copyWith(quantity: quantity.toDouble(), discount: discount);
     }
 
     final updated = _recalculate(order, lines: lines);
@@ -323,6 +330,7 @@ class FakeOrderDatasource implements OrderDatasource {
     required String orderId,
     required String customerPhone,
     String? customerName,
+    String? customerTin,
   }) async {
     await _simulateNetwork();
     final order = _requireOrder(orderId);
@@ -330,6 +338,7 @@ class FakeOrderDatasource implements OrderDatasource {
       status: 'Submitted',
       customerPhone: customerPhone,
       customerName: customerName,
+      customerTin: customerTin,
     );
     _orders[orderId] = updated;
     return updated;

@@ -83,6 +83,40 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<Result<OrderEntity>> updateTicketLineDiscount({
+    required String orderId,
+    required String lineId,
+    required double discount,
+  }) async {
+    try {
+      final current = await _remoteDatasource.getOrder(orderId);
+      OrderLineEntity? line;
+
+      for (final item in current.lines) {
+        if (item.id == lineId) {
+          line = item;
+          break;
+        }
+      }
+
+      if (line == null) {
+        return Result.failure(error: 'Order line not found.');
+      }
+
+      final order = await _remoteDatasource.updateOrderLineQuantity(
+        orderId: orderId,
+        lineId: lineId,
+        quantity: line.quantity.round(),
+        discount: discount,
+      );
+
+      return Result.success(data: order);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
   Future<Result<OrderEntity>> removeTicketLine({required String orderId, required String lineId}) async {
     try {
       final order = await _remoteDatasource.removeOrderLine(orderId: orderId, lineId: lineId);
@@ -192,12 +226,14 @@ class OrderRepositoryImpl implements OrderRepository {
     required String orderId,
     required String customerPhone,
     String? customerName,
+    String? customerTin,
   }) async {
     try {
       final order = await _remoteDatasource.submitOrder(
         orderId: orderId,
         customerPhone: customerPhone,
         customerName: customerName,
+        customerTin: customerTin,
       );
       return Result.success(data: order);
     } catch (e) {

@@ -9,9 +9,19 @@ abstract class OrderDatasource {
 
   Future<OrderEntity> createTicket({required String branchId, required String tableNumber});
 
-  Future<OrderEntity> addOrderLine({required String orderId, required String menuItemId, required int quantity});
+  Future<OrderEntity> addOrderLine({
+    required String orderId,
+    required String menuItemId,
+    required int quantity,
+    double? discount,
+  });
 
-  Future<OrderEntity> updateOrderLineQuantity({required String orderId, required String lineId, required int quantity});
+  Future<OrderEntity> updateOrderLineQuantity({
+    required String orderId,
+    required String lineId,
+    required int quantity,
+    double? discount,
+  });
 
   Future<OrderEntity> removeOrderLine({required String orderId, required String lineId});
 
@@ -52,6 +62,7 @@ abstract class OrderDatasource {
     required String orderId,
     required String customerPhone,
     String? customerName,
+    String? customerTin,
   });
 
   Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId});

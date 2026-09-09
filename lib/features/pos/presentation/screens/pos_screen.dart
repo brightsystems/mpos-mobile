@@ -522,24 +522,44 @@ class _PosCartPanel extends StatelessWidget {
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSizes.padding),
-                      child: OrderCard(
-                        name: line.name,
-                        imageUrl: line.imageUrl ?? '',
-                        stock: line.trackInventory ? (line.stockOnHand ?? 0).floor() : 999,
-                        price: line.unitPrice.round(),
-                        initialQuantity: line.remainingQuantity.round(),
-                        onChangedQuantity: (value) {
-                          context.read<PosBloc>().add(
-                            PosLineQuantityChanged(line.id, value + line.paidQuantity.round()),
-                          );
-                        },
-                        onTapRemove: () {
-                          context.read<PosBloc>().add(PosLineRemoved(line.id));
+                      child: GestureDetector(
+                        onLongPress: () => _showLineDiscountDialog(context, line),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            OrderCard(
+                              name: line.name,
+                              imageUrl: line.imageUrl ?? '',
+                              stock: line.trackInventory ? (line.stockOnHand ?? 0).floor() : 999,
+                              price: line.unitPrice.round(),
+                              initialQuantity: line.remainingQuantity.round(),
+                              onChangedQuantity: (value) {
+                                context.read<PosBloc>().add(
+                                  PosLineQuantityChanged(line.id, value + line.paidQuantity.round()),
+                                );
+                              },
+                              onTapRemove: () {
+                                context.read<PosBloc>().add(PosLineRemoved(line.id));
 
-                          if (state.cartLines.length == 1) {
-                            panelController.close();
-                          }
-                        },
+                                if (state.cartLines.length == 1) {
+                                  panelController.close();
+                                }
+                              },
+                            ),
+                            if (line.discount > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2, right: 4),
+                                child: Text(
+                                  'Discount −${CurrencyFormatter.format(line.discount)} (long-press to edit)',
+                                  textAlign: TextAlign.end,
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -751,6 +771,7 @@ class _PosCartFooter extends StatelessWidget {
 
     final phoneController = TextEditingController(text: ticket.customerPhone ?? '');
     final nameController = TextEditingController(text: ticket.customerName ?? '');
+    final tinController = TextEditingController(text: ticket.customerTin ?? '');
     final total = selectedOnly
         ? ticket.unpaidLines.fold<double>(0, (sum, line) {
             final selectedQuantity = splitQuantities?[line.id] ?? 0;
@@ -783,6 +804,14 @@ class _PosCartFooter extends StatelessWidget {
               ),
               const SizedBox(height: AppSizes.padding),
               AppTextField(controller: nameController, labelText: 'Customer name (optional)'),
+              const SizedBox(height: AppSizes.padding),
+              AppTextField(
+                controller: tinController,
+                labelText: 'Buyer TIN (optional, 10 digits)',
+                hintText: '0012345678',
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+              ),
               const SizedBox(height: AppSizes.padding),
               if (paymentMethod == 'cash')
                 AppTextField(
@@ -818,6 +847,7 @@ class _PosCartFooter extends StatelessWidget {
                 text: 'Confirm payment',
                 enabled:
                     phoneController.text.trim().isNotEmpty &&
+                    _isValidTinInput(tinController.text) &&
                     (paymentMethod == 'chapa' ||
                         paymentMethod == 'telebirr' ||
                         (double.tryParse(amountController.text) ?? 0) >= total),
@@ -829,6 +859,7 @@ class _PosCartFooter extends StatelessWidget {
                       paymentMethod: paymentMethod,
                       customerPhone: phoneController.text.trim(),
                       customerName: nameController.text.trim().isEmpty ? null : nameController.text.trim(),
+                      customerTin: tinController.text.trim().isEmpty ? null : tinController.text.trim(),
                       receivedAmount: paymentMethod == 'cash' ? double.tryParse(amountController.text) : null,
                       selectedOnly: selectedOnly,
                       splitQuantities: selectedOnly ? splitQuantities : null,
@@ -844,4 +875,67 @@ class _PosCartFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isValidTinInput(String value) {
+  final trimmed = value.trim();
+
+  return trimmed.isEmpty || RegExp(r'^\d{10}$').hasMatch(trimmed);
+}
+
+void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
+  final bloc = context.read<PosBloc>();
+  final discountController = TextEditingController(text: line.discount > 0 ? line.discount.toStringAsFixed(2) : '');
+  final maxDiscount = line.unitPrice * line.quantity;
+
+  AppDialog.show(
+    title: 'Line discount',
+    leftButtonText: 'Cancel',
+    child: StatefulBuilder(
+      builder: (context, setState) {
+        final parsed = double.tryParse(discountController.text.trim());
+        final entered = discountController.text.trim();
+        final valid = entered.isEmpty || (parsed != null && parsed >= 0 && parsed <= maxDiscount);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(line.name, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSizes.padding / 2),
+            Text(
+              'Line value ${CurrencyFormatter.format(maxDiscount)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSizes.padding),
+            AppTextField(
+              controller: discountController,
+              labelText: 'Discount amount (ETB)',
+              hintText: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (!valid)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Enter an amount between 0 and ${CurrencyFormatter.format(maxDiscount)}.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            const SizedBox(height: AppSizes.padding * 1.5),
+            AppButton(
+              text: 'Apply discount',
+              enabled: valid,
+              onTap: () {
+                final amount = double.tryParse(discountController.text.trim()) ?? 0;
+                bloc.add(PosLineDiscountChanged(line.id, amount));
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }

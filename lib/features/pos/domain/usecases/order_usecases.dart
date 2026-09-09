@@ -65,6 +65,24 @@ class UpdateTicketLineQuantityUsecase extends Usecase<Result<OrderEntity>, Updat
       _repository.updateTicketLineQuantity(orderId: params.orderId, lineId: params.lineId, quantity: params.quantity);
 }
 
+class UpdateTicketLineDiscountParams {
+  const UpdateTicketLineDiscountParams({required this.orderId, required this.lineId, required this.discount});
+
+  final String orderId;
+  final String lineId;
+  final double discount;
+}
+
+class UpdateTicketLineDiscountUsecase extends Usecase<Result<OrderEntity>, UpdateTicketLineDiscountParams> {
+  UpdateTicketLineDiscountUsecase(this._repository);
+
+  final OrderRepository _repository;
+
+  @override
+  Future<Result<OrderEntity>> call(UpdateTicketLineDiscountParams params) =>
+      _repository.updateTicketLineDiscount(orderId: params.orderId, lineId: params.lineId, discount: params.discount);
+}
+
 class RemoveTicketLineParams {
   const RemoveTicketLineParams({required this.orderId, required this.lineId});
 
