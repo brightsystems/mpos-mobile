@@ -508,6 +508,7 @@ class FakeAdminDatasource implements AdminDatasource {
       stockOnHand: (body['initialStock'] as num?)?.toDouble(),
       isAvailable: true,
       sortOrder: _items.length + 1,
+      harmonizationCode: body['harmonizationCode'] as String?,
     );
     _items.add(item);
     return _delay(item);
@@ -532,12 +533,22 @@ class FakeAdminDatasource implements AdminDatasource {
       stockOnHand: existing.stockOnHand,
       isAvailable: (body['isActive'] as bool?) ?? existing.isAvailable,
       sortOrder: existing.sortOrder,
+      harmonizationCode: body.containsKey('harmonizationCode')
+          ? body['harmonizationCode'] as String?
+          : existing.harmonizationCode,
     );
     if (index >= 0) {
       _items[index] = updated;
     }
     return _delay(updated);
   }
+
+  @override
+  Future<List<HsnCodeModel>> listHsnCodes({bool activeOnly = true}) => _delay(const [
+    HsnCodeModel(id: 'hsn-1', code: '1012100', ratePercent: 12.0, description: 'Sample excise 12%', isActive: true),
+    HsnCodeModel(id: 'hsn-2', code: '2011000', ratePercent: 5.0, description: 'Sample excise 5%', isActive: true),
+    HsnCodeModel(id: 'hsn-3', code: '17019990', ratePercent: 18.0, description: 'Sample excise 18%', isActive: true),
+  ]);
 
   @override
   Future<PagedOrdersModel> listOrders(String branchId, Map<String, String> query) {

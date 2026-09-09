@@ -45,6 +45,7 @@ abstract class AdminRepository {
   Future<Result<AdminMenuItemModel>> createOrgItem(String orgId, Map<String, dynamic> body);
   Future<Result<AdminMenuItemModel>> createBranchItem(String branchId, Map<String, dynamic> body);
   Future<Result<AdminMenuItemModel>> updateItem(String itemId, Map<String, dynamic> body);
+  Future<Result<List<HsnCodeModel>>> listHsnCodes({bool activeOnly = true});
 
   Future<Result<PagedOrdersModel>> listOrders(String branchId, Map<String, String> query);
   Future<Result<OrderSummaryModel>> getOrderSummary(String branchId);

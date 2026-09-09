@@ -153,6 +153,10 @@ class AdminRepositoryImpl implements AdminRepository {
       _guard(() => _datasource.updateItem(itemId, body));
 
   @override
+  Future<Result<List<HsnCodeModel>>> listHsnCodes({bool activeOnly = true}) =>
+      _guard(() => _datasource.listHsnCodes(activeOnly: activeOnly));
+
+  @override
   Future<Result<PagedOrdersModel>> listOrders(String branchId, Map<String, String> query) =>
       _guard(() => _datasource.listOrders(branchId, query));
 

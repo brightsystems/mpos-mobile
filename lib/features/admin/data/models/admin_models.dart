@@ -466,6 +466,7 @@ class AdminMenuItemModel {
     required this.stockOnHand,
     required this.isAvailable,
     required this.sortOrder,
+    this.harmonizationCode,
   });
 
   factory AdminMenuItemModel.fromJson(Map<String, dynamic> json) {
@@ -489,6 +490,7 @@ class AdminMenuItemModel {
       stockOnHand: stock < 0 ? null : stock,
       isAvailable: reader.boolean('isAvailable', fallback: true),
       sortOrder: reader.integer('sortOrder'),
+      harmonizationCode: reader.string('harmonizationCode').isEmpty ? null : reader.string('harmonizationCode'),
     );
   }
 
@@ -505,6 +507,35 @@ class AdminMenuItemModel {
   final double? stockOnHand;
   final bool isAvailable;
   final int sortOrder;
+  final String? harmonizationCode;
+}
+
+/// Harmonization (HSN) code lookup entry with its excise rate.
+class HsnCodeModel {
+  const HsnCodeModel({
+    required this.id,
+    required this.code,
+    required this.ratePercent,
+    required this.description,
+    required this.isActive,
+  });
+
+  factory HsnCodeModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json);
+    return HsnCodeModel(
+      id: reader.string('id'),
+      code: reader.string('code'),
+      ratePercent: reader.number('ratePercent'),
+      description: reader.string('description').isEmpty ? null : reader.string('description'),
+      isActive: reader.boolean('isActive', fallback: true),
+    );
+  }
+
+  final String id;
+  final String code;
+  final double ratePercent;
+  final String? description;
+  final bool isActive;
 }
 
 class OrderSummaryModel {

@@ -54,6 +54,9 @@ abstract class AdminDatasource {
   Future<AdminMenuItemModel> createBranchItem(String branchId, Map<String, dynamic> body);
   Future<AdminMenuItemModel> updateItem(String itemId, Map<String, dynamic> body);
 
+  // HSN codes (excise lookup).
+  Future<List<HsnCodeModel>> listHsnCodes({bool activeOnly = true});
+
   // Orders.
   Future<PagedOrdersModel> listOrders(String branchId, Map<String, String> query);
   Future<OrderSummaryModel> getOrderSummary(String branchId);

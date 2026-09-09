@@ -424,6 +424,18 @@ class AdminRemoteDatasource implements AdminDatasource {
     return _unwrap(response);
   }
 
+  // HSN codes.
+
+  @override
+  Future<List<HsnCodeModel>> listHsnCodes({bool activeOnly = true}) async {
+    final response = await _client.get(
+      '/hsn-codes${activeOnly ? '?activeOnly=true' : ''}',
+      authenticated: true,
+      fromJson: (json) => _asList(json).map(HsnCodeModel.fromJson).toList(),
+    );
+    return _unwrap(response);
+  }
+
   // Orders.
 
   @override

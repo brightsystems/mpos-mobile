@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+﻿
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -361,7 +360,7 @@ class _ItemCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${item.categoryName} · ${CurrencyFormatter.format(item.price)}',
+                  '${item.categoryName} Â· ${CurrencyFormatter.format(item.price)}',
                   style: textTheme.bodySmall,
                 ),
                 if (taxSummary.isNotEmpty) ...[
@@ -465,11 +464,28 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final TextEditingController _initialStock;
   late String _categoryId;
   late Set<String> _taxIds;
+  String? _hsnCode;
+  List<HsnCodeModel> _hsnCodes = const [];
   bool _trackInventory = false;
   bool _isActive = true;
   bool _uploading = false;
 
   bool get _isEdit => widget.existing != null;
+
+  Future<void> _loadHsnCodes() async {
+    final result = await _repository.listHsnCodes();
+    if (!mounted || !result.isSuccess) return;
+    setState(() => _hsnCodes = result.data ?? const []);
+  }
+
+  double? get _selectedHsnRate {
+    final code = _hsnCode;
+    if (code == null || code.isEmpty) return null;
+    for (final hsn in _hsnCodes) {
+      if (hsn.code == code) return hsn.ratePercent;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -486,8 +502,10 @@ class _ItemEditorState extends State<_ItemEditor> {
       _categoryId = widget.categories.first.id;
     }
     _taxIds = {...?existing?.taxIds};
+    _hsnCode = existing?.harmonizationCode;
     _trackInventory = existing?.trackInventory ?? false;
     _isActive = existing?.isAvailable ?? true;
+    _loadHsnCodes();
 
     // New items default to VAT15 (or the first non-exempt tax), matching the web admin.
     if (existing == null && _taxIds.isEmpty && widget.taxes.isNotEmpty) {
@@ -497,7 +515,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       _taxIds = {(vat.isNotEmpty ? vat.first : fallback).id};
     }
 
-    // Exempt is exclusive — drop any other selections if Exempt is already set.
+    // Exempt is exclusive â€” drop any other selections if Exempt is already set.
     final exempt = _exemptTax;
     if (exempt != null && _taxIds.contains(exempt.id) && _taxIds.length > 1) {
       _taxIds = {exempt.id};
@@ -630,6 +648,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       if (_imageUrl.text.trim().isNotEmpty) 'imageUrl': _imageUrl.text.trim(),
       'taxIds': _taxIds.toList(),
       'trackInventory': _trackInventory,
+      'harmonizationCode': (_hsnCode?.isEmpty ?? true) ? null : _hsnCode,
     };
 
     if (_isEdit) {
@@ -731,8 +750,34 @@ class _ItemEditorState extends State<_ItemEditor> {
               const SizedBox(height: 4),
               Text(
                 exemptSelected
-                    ? 'Exempt is selected — other taxes are disabled.'
+                    ? 'Exempt is selected â€” other taxes are disabled.'
                     : 'Selecting Exempt clears other taxes. At most one MoR tax can be assigned.',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline),
+              ),
+            ],
+            const SizedBox(height: AppSizes.padding),
+            AdminDropdownField<String>(
+              label: 'HSN code (excise)',
+              value: (_hsnCode != null && _hsnCodes.any((h) => h.code == _hsnCode)) ? _hsnCode! : '',
+              items: [
+                const DropdownMenuItem(value: '', child: Text('None')),
+                for (final hsn in _hsnCodes)
+                  DropdownMenuItem(
+                    value: hsn.code,
+                    child: Text(
+                      '${hsn.code} â€” ${hsn.ratePercent.toStringAsFixed(hsn.ratePercent % 1 == 0 ? 0 : 1)}%'
+                      '${(hsn.description?.isNotEmpty ?? false) ? ' Â· ${hsn.description}' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _hsnCode = value.isEmpty ? null : value),
+            ),
+            if (_selectedHsnRate != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Excise ${_selectedHsnRate!.toStringAsFixed(_selectedHsnRate! % 1 == 0 ? 0 : 1)}% will apply automatically.',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline),
               ),
             ],
