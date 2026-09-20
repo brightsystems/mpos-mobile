@@ -233,7 +233,7 @@ class _CertificateStatusCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (emailedAt != null)
-                  Text('Emailed to INSA: $emailedAt', style: Theme.of(context).textTheme.bodySmall),
+                  Text('Request package emailed to contact person: $emailedAt', style: Theme.of(context).textTheme.bodySmall),
                 if (emailError != null)
                   Text(
                     'Email failed: $emailError',
