@@ -17,18 +17,4 @@ class MposConfig {
     'MPOS_APP_SECRET',
     defaultValue: 'dev-mobile-pos-secret-change-me',
   );
-
-  /// Supabase Storage for menu images (mirrors mpos-web `environment.supabase`).
-  /// Only the public URL is stored on `MenuItem.ImageUrl`; image bytes never
-  /// pass through the MPOS API.
-  static const String supabaseUrl = String.fromEnvironment('MPOS_SUPABASE_URL', defaultValue: '');
-
-  static const String supabaseAnonKey = String.fromEnvironment('MPOS_SUPABASE_ANON_KEY', defaultValue: '');
-
-  static const String supabaseMenuBucket = String.fromEnvironment(
-    'MPOS_SUPABASE_MENU_BUCKET',
-    defaultValue: 'menu-images',
-  );
-
-  static bool get supabaseConfigured => supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

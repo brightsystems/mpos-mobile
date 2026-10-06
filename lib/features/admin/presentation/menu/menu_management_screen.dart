@@ -860,7 +860,7 @@ class _ImagePickerField extends StatelessWidget {
               Text('Product photo', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(
-                'Uploads to Supabase; only the URL is saved.',
+                'Uploads on Save; only the URL is saved.',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: AppSizes.padding / 2),

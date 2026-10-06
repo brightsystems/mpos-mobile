@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/core/network/api_response.dart';
@@ -46,6 +47,95 @@ class MposApiClient {
     T Function(Object? json)? fromJson,
   }) async {
     return _request('DELETE', path, body: body, authenticated: authenticated, fromJson: fromJson);
+  }
+
+  /// Uploads a single file as `multipart/form-data` (field name `file`).
+  /// Mirrors `_request` auth handling, including one token-refresh retry.
+  Future<ApiResponse<T>> postMultipartFile<T>(
+    String path, {
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+    T Function(Object? json)? fromJson,
+    bool isRetry = false,
+  }) async {
+    final session = await _sessionStorage.loadSession();
+
+    if (session == null) {
+      return const ApiResponse(success: false, message: 'Not authenticated.');
+    }
+
+    final headers = <String, String>{
+      'X-App-Id': MposConfig.appId,
+      'X-App-Secret': MposConfig.appSecret,
+      'Authorization': 'Bearer ${session.accessToken}',
+      if (session.organizationId.isNotEmpty) 'X-Organization-Id': session.organizationId,
+      if (session.branchId.isNotEmpty) 'X-Branch-Id': session.branchId,
+    };
+
+    try {
+      final parts = contentType.split('/');
+      final request = http.MultipartRequest('POST', _uri(path))
+        ..headers.addAll(headers)
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: fileName,
+            contentType: parts.length == 2 ? MediaType(parts[0], parts[1]) : null,
+          ),
+        );
+
+      final response = await _httpClient.send(request).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 401 && !isRetry) {
+        final refreshed = await _tryRefreshSession();
+
+        if (refreshed) {
+          return postMultipartFile(
+            path,
+            bytes: bytes,
+            fileName: fileName,
+            contentType: contentType,
+            fromJson: fromJson,
+            isRetry: true,
+          );
+        }
+      }
+
+      final responseBody = await response.stream.bytesToString().timeout(const Duration(seconds: 15));
+
+      if (responseBody.isEmpty) {
+        return ApiResponse(success: false, message: 'Empty response (${response.statusCode}).');
+      }
+
+      final decoded = jsonDecode(responseBody);
+      if (decoded is! Map<String, dynamic>) {
+        return ApiResponse(success: false, message: 'Unexpected response (${response.statusCode}).');
+      }
+
+      return ApiResponse.fromJson(decoded, (json) {
+        if (fromJson == null) {
+          return json as T;
+        }
+
+        return fromJson(json);
+      });
+    } on TimeoutException {
+      return ApiResponse(
+        success: false,
+        message: 'API timed out. Check ${MposConfig.baseUrl} and that the phone is on the same Wi‑Fi.',
+      );
+    } on http.ClientException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Cannot reach API at ${MposConfig.baseUrl}. ${e.message}',
+      );
+    } on FormatException {
+      return const ApiResponse(success: false, message: 'API returned a non-JSON response.');
+    } catch (e) {
+      return ApiResponse(success: false, message: e.toString());
+    }
   }
 
   Future<ApiResponse<T>> _request<T>(

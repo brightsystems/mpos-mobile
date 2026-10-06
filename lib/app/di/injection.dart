@@ -6,7 +6,7 @@ import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/core/locale/locale_cubit.dart';
 import 'package:mpos_mobile/core/media/fake_media_service.dart';
 import 'package:mpos_mobile/core/media/media_service.dart';
-import 'package:mpos_mobile/core/media/supabase_media_service.dart';
+import 'package:mpos_mobile/core/media/api_media_service.dart';
 import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/core/theme/theme_cubit.dart';
@@ -66,7 +66,7 @@ Future<void> configureDependencies(SharedPreferences sharedPreferences) async {
 
   if (!getIt.isRegistered<MediaService>()) {
     getIt.registerLazySingleton<MediaService>(
-      () => MposConfig.mockMode ? FakeMediaService() : SupabaseMediaService(),
+      () => MposConfig.mockMode ? FakeMediaService() : ApiMediaService(getIt<MposApiClient>()),
     );
   }
 
