@@ -1,8 +1,10 @@
 import 'package:mpos_mobile/core/common/result.dart';
+import 'package:mpos_mobile/core/network/api_response.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/features/auth/data/datasources/auth_datasource.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
@@ -29,7 +31,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<AuthSessionEntity>> verifyOtp({
+  Future<Result<SignInResult>> verifyOtp({
     required String requestId,
     required String code,
     required String deviceId,
@@ -43,16 +45,43 @@ class AuthRepositoryImpl implements AuthRepository {
         deviceName: deviceName,
       );
 
-      if (!response.success || response.data == null) {
-        return Result.failure(error: response.message ?? response.errors.join(', '));
-      }
-
-      await _sessionStorage.saveSession(response.data!);
-
-      return Result.success(data: response.data!);
+      return _completeSignIn(response);
     } catch (e) {
       return Result.failure(error: e);
     }
+  }
+
+  @override
+  Future<Result<SignInResult>> selectTenant({
+    required String challengeId,
+    required String tenantId,
+    required String deviceId,
+  }) async {
+    try {
+      final response = await _remoteDatasource.selectTenant(
+        challengeId: challengeId,
+        tenantId: tenantId,
+        deviceId: deviceId,
+      );
+
+      return _completeSignIn(response);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  /// Saves the session when sign-in finished; a workspace choice is passed through unsaved.
+  Future<Result<SignInResult>> _completeSignIn(ApiResponse<SignInResult> response) async {
+    if (!response.success || response.data == null) {
+      return Result.failure(error: response.message ?? response.errors.join(', '));
+    }
+
+    final session = response.data!.session;
+    if (session != null) {
+      await _sessionStorage.saveSession(session);
+    }
+
+    return Result.success(data: response.data!);
   }
 
   @override

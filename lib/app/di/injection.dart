@@ -114,6 +114,7 @@ Future<void> configureDependencies(SharedPreferences sharedPreferences) async {
     getIt.registerLazySingleton(() => LogoutUsecase(getIt<AuthRepository>()));
     getIt.registerLazySingleton(() => RequestOtpUsecase(getIt<AuthRepository>()));
     getIt.registerLazySingleton(() => VerifyOtpUsecase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(() => SelectTenantUsecase(getIt<AuthRepository>()));
     getIt.registerLazySingleton(() => RefreshSessionUsecase(getIt<AuthRepository>()));
     getIt.registerLazySingleton(() => SaveSessionUsecase(getIt<AuthRepository>()));
   }
@@ -138,6 +139,7 @@ Future<void> configureDependencies(SharedPreferences sharedPreferences) async {
         loadSessionUsecase: getIt<LoadSessionUsecase>(),
         requestOtpUsecase: getIt<RequestOtpUsecase>(),
         verifyOtpUsecase: getIt<VerifyOtpUsecase>(),
+        selectTenantUsecase: getIt<SelectTenantUsecase>(),
         shiftLoginUsecase: getIt<ShiftLoginUsecase>(),
         saveSessionUsecase: getIt<SaveSessionUsecase>(),
         logoutUsecase: getIt<LogoutUsecase>(),

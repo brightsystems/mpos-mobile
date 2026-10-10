@@ -5,6 +5,7 @@ import 'package:mpos_mobile/features/auth/data/mappers/auth_tokens_mapper.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 
 class AuthRemoteDatasource implements AuthDatasource {
   AuthRemoteDatasource(this._client);
@@ -21,7 +22,7 @@ class AuthRemoteDatasource implements AuthDatasource {
   }
 
   @override
-  Future<ApiResponse<AuthSessionEntity>> verifyOtp({
+  Future<ApiResponse<SignInResult>> verifyOtp({
     required String requestId,
     required String code,
     required String deviceId,
@@ -35,8 +36,20 @@ class AuthRemoteDatasource implements AuthDatasource {
         'deviceId': deviceId,
         if (deviceName != null) 'deviceName': deviceName,
       },
-      fromJson: (json) =>
-          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+      fromJson: (json) => mapSignInResult(json as Map<String, dynamic>, deviceId: deviceId),
+    );
+  }
+
+  @override
+  Future<ApiResponse<SignInResult>> selectTenant({
+    required String challengeId,
+    required String tenantId,
+    required String deviceId,
+  }) {
+    return _client.post(
+      '/auth/tenant/select',
+      body: {'challengeId': challengeId, 'tenantId': tenantId, 'deviceId': deviceId},
+      fromJson: (json) => mapSignInResult(json as Map<String, dynamic>, deviceId: deviceId),
     );
   }
 
@@ -59,8 +72,7 @@ class AuthRemoteDatasource implements AuthDatasource {
     return _client.post(
       '/auth/refresh',
       body: {'refreshToken': refreshToken, 'deviceId': deviceId},
-      fromJson: (json) =>
-          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+      fromJson: (json) => mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
     );
   }
 }

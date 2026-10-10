@@ -1,6 +1,7 @@
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/membership_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 
 /// Maps an `AuthTokensResponseDto` (from `/auth/otp/verify`, `/auth/shift/login`,
 /// `/auth/refresh`, and `/onboarding/business`) into an [AuthSessionEntity].
@@ -40,6 +41,33 @@ AuthSessionEntity mapAuthTokens(
     loginMethod: loginMethod,
     deviceId: deviceId,
   );
+}
+
+/// Maps the response of `/auth/otp/verify` or `/auth/tenant/select`: tokens, or (when the phone is
+/// known in several workspaces) the workspaces to choose from.
+SignInResult mapSignInResult(Map<String, dynamic> json, {required String deviceId}) {
+  if ((json['requiresTenantSelection'] ?? json['RequiresTenantSelection'] ?? false) == true) {
+    return SignInResult.chooseTenant(
+      tenantChallengeId: '${json['tenantChallengeId'] ?? json['TenantChallengeId'] ?? ''}',
+      tenantChoices: ((json['tenantChoices'] ?? json['TenantChoices']) as List<dynamic>? ?? const [])
+          .map((e) => TenantChoiceEntity.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+    );
+  }
+
+  if ((json['requiresPin'] ?? json['RequiresPin'] ?? false) == true) {
+    throw const PinSignInNotSupported();
+  }
+
+  return SignInResult.session(mapAuthTokens(json, deviceId: deviceId, loginMethod: LoginMethod.otp));
+}
+
+/// Privileged accounts with a PIN must finish sign-in with the PIN, which the app doesn't offer yet.
+class PinSignInNotSupported implements Exception {
+  const PinSignInNotSupported();
+
+  @override
+  String toString() => 'This account signs in with a PIN, which the app does not support yet. Sign in on the web.';
 }
 
 List<String> _mergePermissions(List<MembershipEntity> memberships) {

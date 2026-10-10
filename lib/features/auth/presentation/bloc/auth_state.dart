@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 
 sealed class AuthState extends Equatable {
   const AuthState();
@@ -33,6 +34,17 @@ class AuthOtpSent extends AuthState {
 
   @override
   List<Object?> get props => [phone, requestId, expiresInSeconds, devOtp];
+}
+
+/// The code was right but the phone is known in several workspaces -> choose one.
+class AuthNeedsTenantSelection extends AuthState {
+  const AuthNeedsTenantSelection({required this.challengeId, required this.choices});
+
+  final String challengeId;
+  final List<TenantChoiceEntity> choices;
+
+  @override
+  List<Object?> get props => [challengeId, choices];
 }
 
 /// Signed in and has an organization -> route by role.

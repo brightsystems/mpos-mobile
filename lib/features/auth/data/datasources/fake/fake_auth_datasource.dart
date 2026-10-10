@@ -5,6 +5,7 @@ import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.da
 import 'package:mpos_mobile/features/auth/domain/entities/membership_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 
 /// In-memory auth for `MPOS_MOCK_MODE=true`. Phone number decides the role so
 /// every path (onboarding, org admin, manager, cashier, waiter) is testable.
@@ -27,7 +28,7 @@ class FakeAuthDatasource implements AuthDatasource {
   }
 
   @override
-  Future<ApiResponse<AuthSessionEntity>> verifyOtp({
+  Future<ApiResponse<SignInResult>> verifyOtp({
     required String requestId,
     required String code,
     required String deviceId,
@@ -41,7 +42,16 @@ class FakeAuthDatasource implements AuthDatasource {
 
     final phone = _requestPhones[requestId] ?? '0911000001';
 
-    return ApiResponse(success: true, data: _sessionForPhone(phone, deviceId, LoginMethod.otp));
+    return ApiResponse(success: true, data: SignInResult.session(_sessionForPhone(phone, deviceId, LoginMethod.otp)));
+  }
+
+  @override
+  Future<ApiResponse<SignInResult>> selectTenant({
+    required String challengeId,
+    required String tenantId,
+    required String deviceId,
+  }) async {
+    return const ApiResponse(success: false, message: 'Demo mode has a single workspace.');
   }
 
   @override
@@ -73,10 +83,7 @@ class FakeAuthDatasource implements AuthDatasource {
   Future<ApiResponse<AuthSessionEntity>> refresh({required String refreshToken, required String deviceId}) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    return ApiResponse(
-      success: true,
-      data: _sessionForPhone('0911000001', deviceId, LoginMethod.otp),
-    );
+    return ApiResponse(success: true, data: _sessionForPhone('0911000001', deviceId, LoginMethod.otp));
   }
 
   AuthSessionEntity _sessionForPhone(String phone, String deviceId, LoginMethod loginMethod) {

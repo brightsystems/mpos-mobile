@@ -3,6 +3,7 @@ import 'package:mpos_mobile/core/usecase/no_param.dart';
 import 'package:mpos_mobile/core/usecase/usecase.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/repositories/auth_repository.dart';
 
 class RequestOtpUsecase extends Usecase<Result<OtpRequestEntity>, String> {
@@ -25,18 +26,42 @@ class VerifyOtpParams {
   final String? deviceName;
 }
 
-class VerifyOtpUsecase extends Usecase<Result<AuthSessionEntity>, VerifyOtpParams> {
+class VerifyOtpUsecase extends Usecase<Result<SignInResult>, VerifyOtpParams> {
   VerifyOtpUsecase(this._repository);
 
   final AuthRepository _repository;
 
   @override
-  Future<Result<AuthSessionEntity>> call(VerifyOtpParams params) {
+  Future<Result<SignInResult>> call(VerifyOtpParams params) {
     return _repository.verifyOtp(
       requestId: params.requestId,
       code: params.code,
       deviceId: params.deviceId,
       deviceName: params.deviceName,
+    );
+  }
+}
+
+class SelectTenantParams {
+  const SelectTenantParams({required this.challengeId, required this.tenantId, required this.deviceId});
+
+  final String challengeId;
+  final String tenantId;
+  final String deviceId;
+}
+
+/// Signs in to the chosen workspace when the phone is known in several.
+class SelectTenantUsecase extends Usecase<Result<SignInResult>, SelectTenantParams> {
+  SelectTenantUsecase(this._repository);
+
+  final AuthRepository _repository;
+
+  @override
+  Future<Result<SignInResult>> call(SelectTenantParams params) {
+    return _repository.selectTenant(
+      challengeId: params.challengeId,
+      tenantId: params.tenantId,
+      deviceId: params.deviceId,
     );
   }
 }

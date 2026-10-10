@@ -35,6 +35,18 @@ class AuthOtpVerified extends AuthEvent {
   List<Object?> get props => [requestId, code, deviceId, deviceName];
 }
 
+/// The phone is known in several workspaces; the user picked [tenantId].
+class AuthTenantChosen extends AuthEvent {
+  const AuthTenantChosen({required this.challengeId, required this.tenantId, required this.deviceId});
+
+  final String challengeId;
+  final String tenantId;
+  final String deviceId;
+
+  @override
+  List<Object?> get props => [challengeId, tenantId, deviceId];
+}
+
 class AuthShiftQrScanned extends AuthEvent {
   const AuthShiftQrScanned(this.rawPayload, this.deviceId, {this.deviceName});
 

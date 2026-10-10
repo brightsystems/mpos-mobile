@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mpos_mobile/core/usecase/no_param.dart';
 import 'package:mpos_mobile/core/utilities/phone_number.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
@@ -14,12 +15,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required LoadSessionUsecase loadSessionUsecase,
     required RequestOtpUsecase requestOtpUsecase,
     required VerifyOtpUsecase verifyOtpUsecase,
+    required SelectTenantUsecase selectTenantUsecase,
     required ShiftLoginUsecase shiftLoginUsecase,
     required SaveSessionUsecase saveSessionUsecase,
     required LogoutUsecase logoutUsecase,
   }) : _loadSessionUsecase = loadSessionUsecase,
        _requestOtpUsecase = requestOtpUsecase,
        _verifyOtpUsecase = verifyOtpUsecase,
+       _selectTenantUsecase = selectTenantUsecase,
        _shiftLoginUsecase = shiftLoginUsecase,
        _saveSessionUsecase = saveSessionUsecase,
        _logoutUsecase = logoutUsecase,
@@ -27,6 +30,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthStarted>(_onStarted);
     on<AuthOtpRequested>(_onOtpRequested);
     on<AuthOtpVerified>(_onOtpVerified);
+    on<AuthTenantChosen>(_onTenantChosen);
     on<AuthShiftQrScanned>(_onShiftQrScanned);
     on<AuthSessionUpdated>(_onSessionUpdated);
     on<AuthBusinessSelected>(_onBusinessSelected);
@@ -36,6 +40,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoadSessionUsecase _loadSessionUsecase;
   final RequestOtpUsecase _requestOtpUsecase;
   final VerifyOtpUsecase _verifyOtpUsecase;
+  final SelectTenantUsecase _selectTenantUsecase;
   final ShiftLoginUsecase _shiftLoginUsecase;
   final SaveSessionUsecase _saveSessionUsecase;
   final LogoutUsecase _logoutUsecase;
@@ -88,11 +93,35 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     if (result.isSuccess && result.data != null) {
-      await _emitForSession(result.data!, emit);
+      await _emitForSignIn(result.data!, emit);
       return;
     }
 
     emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Invalid code. Try again.'));
+  }
+
+  Future<void> _onTenantChosen(AuthTenantChosen event, Emitter<AuthState> emit) async {
+    emit(const AuthLoading());
+    final result = await _selectTenantUsecase(
+      SelectTenantParams(challengeId: event.challengeId, tenantId: event.tenantId, deviceId: event.deviceId),
+    );
+
+    if (result.isSuccess && result.data != null) {
+      await _emitForSignIn(result.data!, emit);
+      return;
+    }
+
+    emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Could not sign in to that workspace. Try again.'));
+  }
+
+  Future<void> _emitForSignIn(SignInResult result, Emitter<AuthState> emit) async {
+    final session = result.session;
+    if (session == null) {
+      emit(AuthNeedsTenantSelection(challengeId: result.tenantChallengeId ?? '', choices: result.tenantChoices));
+      return;
+    }
+
+    await _emitForSession(session, emit);
   }
 
   Future<void> _onShiftQrScanned(AuthShiftQrScanned event, Emitter<AuthState> emit) async {

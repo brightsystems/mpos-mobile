@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/core/device/mpos_device_id.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/sign_in_result_entity.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
@@ -26,6 +27,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   String? _deviceId;
   String? _requestId;
   bool _codeStep = false;
+
+  /// Set when the phone is known in several workspaces: the user picks one.
+  AuthNeedsTenantSelection? _tenantStep;
 
   @override
   void initState() {
@@ -67,6 +71,16 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     );
   }
 
+  void _chooseTenant(TenantChoiceEntity choice) {
+    final step = _tenantStep;
+    if (step == null || _deviceId == null) {
+      return;
+    }
+    context.read<AuthBloc>().add(
+      AuthTenantChosen(challengeId: step.challengeId, tenantId: choice.tenantId, deviceId: _deviceId!),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -86,12 +100,29 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             AppSnackBar.show(state.devOtp != null ? 'Demo code: ${state.devOtp}' : 'Code sent to ${state.phone}.');
           }
 
+          if (state is AuthNeedsTenantSelection) {
+            setState(() => _tenantStep = state);
+          }
+
           if (state is AuthUnauthenticated && state.message != null) {
+            // A failed workspace choice (e.g. expired challenge) starts over with a new code.
+            setState(() {
+              if (_tenantStep != null) {
+                _tenantStep = null;
+                _codeStep = false;
+                _code.clear();
+              }
+            });
             AppSnackBar.showError(state.message!);
           }
         },
         builder: (context, state) {
           final busy = state is AuthLoading || state is AuthOtpSending;
+          final tenantStep = _tenantStep;
+
+          if (tenantStep != null) {
+            return _buildTenantStep(context, tenantStep, busy);
+          }
 
           return SafeArea(
             child: Padding(
@@ -137,7 +168,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       autofocus: true,
                     ),
                     const SizedBox(height: AppSizes.padding),
-                    AppButton(text: busy ? 'Verifying…' : 'Verify & continue', height: 52, enabled: !busy, onTap: _verify),
+                    AppButton(
+                      text: busy ? 'Verifying…' : 'Verify & continue',
+                      height: 52,
+                      enabled: !busy,
+                      onTap: _verify,
+                    ),
                     const SizedBox(height: AppSizes.padding / 2),
                     TextButton(
                       onPressed: busy ? null : () => setState(() => _codeStep = false),
@@ -149,6 +185,52 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTenantStep(BuildContext context, AuthNeedsTenantSelection step, bool busy) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(AppSizes.padding),
+        children: [
+          const SizedBox(height: AppSizes.padding),
+          Text(
+            'Choose a workspace',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${_phone.text.trim()} is registered with more than one business. Choose where to sign in.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSizes.padding * 1.5),
+          for (final choice in step.choices)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.storefront_outlined),
+                title: Text(choice.businessName.isEmpty ? choice.slug : choice.businessName),
+                subtitle: choice.slug.isEmpty ? null : Text(choice.slug),
+                trailing: busy ? null : const Icon(Icons.chevron_right),
+                enabled: !busy,
+                onTap: () => _chooseTenant(choice),
+              ),
+            ),
+          if (busy) ...[const SizedBox(height: AppSizes.padding), const Center(child: CircularProgressIndicator())],
+          const SizedBox(height: AppSizes.padding / 2),
+          TextButton(
+            onPressed: busy
+                ? null
+                : () => setState(() {
+                    _tenantStep = null;
+                    _codeStep = false;
+                    _code.clear();
+                  }),
+            child: const Text('Use another phone number'),
+          ),
+        ],
       ),
     );
   }
