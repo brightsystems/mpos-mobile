@@ -13,20 +13,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({
     required LoadSessionUsecase loadSessionUsecase,
     required RequestOtpUsecase requestOtpUsecase,
-    required VerifyOtpUsecase verifyOtpUsecase,
+    required PasswordLoginUsecase passwordLoginUsecase,
+    required SetPasswordWithOtpUsecase setPasswordWithOtpUsecase,
     required ShiftLoginUsecase shiftLoginUsecase,
     required SaveSessionUsecase saveSessionUsecase,
     required LogoutUsecase logoutUsecase,
   }) : _loadSessionUsecase = loadSessionUsecase,
        _requestOtpUsecase = requestOtpUsecase,
-       _verifyOtpUsecase = verifyOtpUsecase,
+       _passwordLoginUsecase = passwordLoginUsecase,
+       _setPasswordWithOtpUsecase = setPasswordWithOtpUsecase,
        _shiftLoginUsecase = shiftLoginUsecase,
        _saveSessionUsecase = saveSessionUsecase,
        _logoutUsecase = logoutUsecase,
        super(const AuthInitial()) {
     on<AuthStarted>(_onStarted);
+    on<AuthPasswordLoginRequested>(_onPasswordLoginRequested);
     on<AuthOtpRequested>(_onOtpRequested);
-    on<AuthOtpVerified>(_onOtpVerified);
+    on<AuthPasswordSetSubmitted>(_onPasswordSetSubmitted);
     on<AuthShiftQrScanned>(_onShiftQrScanned);
     on<AuthSessionUpdated>(_onSessionUpdated);
     on<AuthBusinessSelected>(_onBusinessSelected);
@@ -35,7 +38,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   final LoadSessionUsecase _loadSessionUsecase;
   final RequestOtpUsecase _requestOtpUsecase;
-  final VerifyOtpUsecase _verifyOtpUsecase;
+  final PasswordLoginUsecase _passwordLoginUsecase;
+  final SetPasswordWithOtpUsecase _setPasswordWithOtpUsecase;
   final ShiftLoginUsecase _shiftLoginUsecase;
   final SaveSessionUsecase _saveSessionUsecase;
   final LogoutUsecase _logoutUsecase;
@@ -50,6 +54,44 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthUnauthenticated());
   }
 
+  Future<void> _onPasswordLoginRequested(AuthPasswordLoginRequested event, Emitter<AuthState> emit) async {
+    final validationError = PhoneNumber.validate(event.phone);
+    if (validationError != null) {
+      emit(AuthUnauthenticated(message: validationError));
+      return;
+    }
+
+    if (event.password.isEmpty) {
+      emit(const AuthUnauthenticated(message: 'Enter your password.'));
+      return;
+    }
+
+    emit(const AuthLoading());
+    final normalized = PhoneNumber.normalize(event.phone);
+    final result = await _passwordLoginUsecase(
+      PasswordLoginParams(
+        phone: normalized,
+        password: event.password,
+        deviceId: event.deviceId,
+        deviceName: event.deviceName,
+      ),
+    );
+
+    if (!result.isSuccess || result.data == null) {
+      emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Sign-in failed. Try again.'));
+      return;
+    }
+
+    final session = result.data!.session;
+    if (session != null) {
+      await _emitForSession(session, emit);
+      return;
+    }
+
+    // No password yet: verify the phone by SMS code and set one.
+    await _sendCode(normalized, PasswordSetupReason.firstTime, emit);
+  }
+
   Future<void> _onOtpRequested(AuthOtpRequested event, Emitter<AuthState> emit) async {
     final validationError = PhoneNumber.validate(event.phone);
     if (validationError != null) {
@@ -57,17 +99,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
+    await _sendCode(PhoneNumber.normalize(event.phone), event.reason, emit);
+  }
+
+  Future<void> _sendCode(String phone, PasswordSetupReason reason, Emitter<AuthState> emit) async {
     emit(const AuthOtpSending());
-    final normalized = PhoneNumber.normalize(event.phone);
-    final result = await _requestOtpUsecase(normalized);
+    final result = await _requestOtpUsecase(phone);
 
     if (result.isSuccess && result.data != null) {
       emit(
         AuthOtpSent(
-          phone: normalized,
+          phone: phone,
           requestId: result.data!.requestId,
           expiresInSeconds: result.data!.expiresInSeconds,
           devOtp: result.data!.devOtp,
+          reason: reason,
         ),
       );
       return;
@@ -76,12 +122,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Could not send the code. Try again.'));
   }
 
-  Future<void> _onOtpVerified(AuthOtpVerified event, Emitter<AuthState> emit) async {
+  Future<void> _onPasswordSetSubmitted(AuthPasswordSetSubmitted event, Emitter<AuthState> emit) async {
+    final problem = passwordProblem(event.newPassword);
+    if (problem != null) {
+      emit(AuthUnauthenticated(message: problem));
+      return;
+    }
+
     emit(const AuthLoading());
-    final result = await _verifyOtpUsecase(
-      VerifyOtpParams(
+    final result = await _setPasswordWithOtpUsecase(
+      SetPasswordWithOtpParams(
         requestId: event.requestId,
         code: event.code,
+        newPassword: event.newPassword,
         deviceId: event.deviceId,
         deviceName: event.deviceName,
       ),
@@ -92,7 +145,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
-    emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Invalid code. Try again.'));
+    emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Could not set the password. Try again.'));
+  }
+
+  /// Client-side copy of the API password policy; null when acceptable.
+  static String? passwordProblem(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+
+    if (password.length > 128) {
+      return 'Password must be at most 128 characters.';
+    }
+
+    if (!RegExp(r'\p{L}', unicode: true).hasMatch(password) || !RegExp(r'\d').hasMatch(password)) {
+      return 'Password must contain at least one letter and one number.';
+    }
+
+    return null;
   }
 
   Future<void> _onShiftQrScanned(AuthShiftQrScanned event, Emitter<AuthState> emit) async {

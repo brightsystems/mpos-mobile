@@ -5,6 +5,7 @@ import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.da
 import 'package:mpos_mobile/features/auth/domain/entities/membership_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 
 /// In-memory auth for `MPOS_MOCK_MODE=true`. Phone number decides the role so
 /// every path (onboarding, org admin, manager, cashier, waiter) is testable.
@@ -26,10 +27,31 @@ class FakeAuthDatasource implements AuthDatasource {
     );
   }
 
+  /// Demo mode: any password of 8+ characters signs in; the phone decides the role.
   @override
-  Future<ApiResponse<AuthSessionEntity>> verifyOtp({
+  Future<ApiResponse<PasswordLoginOutcome>> loginWithPassword({
+    required String phone,
+    required String password,
+    required String deviceId,
+    String? deviceName,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    if (password.length < 8) {
+      return const ApiResponse(success: false, message: 'Invalid phone number or password.');
+    }
+
+    return ApiResponse(
+      success: true,
+      data: PasswordLoginOutcome.session(_sessionForPhone(phone, deviceId, LoginMethod.otp)),
+    );
+  }
+
+  @override
+  Future<ApiResponse<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,
     required String code,
+    required String newPassword,
     required String deviceId,
     String? deviceName,
   }) async {
@@ -73,10 +95,7 @@ class FakeAuthDatasource implements AuthDatasource {
   Future<ApiResponse<AuthSessionEntity>> refresh({required String refreshToken, required String deviceId}) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    return ApiResponse(
-      success: true,
-      data: _sessionForPhone('0911000001', deviceId, LoginMethod.otp),
-    );
+    return ApiResponse(success: true, data: _sessionForPhone('0911000001', deviceId, LoginMethod.otp));
   }
 
   AuthSessionEntity _sessionForPhone(String phone, String deviceId, LoginMethod loginMethod) {

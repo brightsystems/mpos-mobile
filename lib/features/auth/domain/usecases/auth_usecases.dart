@@ -3,6 +3,7 @@ import 'package:mpos_mobile/core/usecase/no_param.dart';
 import 'package:mpos_mobile/core/usecase/usecase.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 import 'package:mpos_mobile/features/auth/domain/repositories/auth_repository.dart';
 
 class RequestOtpUsecase extends Usecase<Result<OtpRequestEntity>, String> {
@@ -16,25 +17,60 @@ class RequestOtpUsecase extends Usecase<Result<OtpRequestEntity>, String> {
   }
 }
 
-class VerifyOtpParams {
-  const VerifyOtpParams({required this.requestId, required this.code, required this.deviceId, this.deviceName});
+class PasswordLoginParams {
+  const PasswordLoginParams({required this.phone, required this.password, required this.deviceId, this.deviceName});
 
-  final String requestId;
-  final String code;
+  final String phone;
+  final String password;
   final String deviceId;
   final String? deviceName;
 }
 
-class VerifyOtpUsecase extends Usecase<Result<AuthSessionEntity>, VerifyOtpParams> {
-  VerifyOtpUsecase(this._repository);
+/// Daily sign-in with phone + password (may answer that a password must be set first).
+class PasswordLoginUsecase extends Usecase<Result<PasswordLoginOutcome>, PasswordLoginParams> {
+  PasswordLoginUsecase(this._repository);
 
   final AuthRepository _repository;
 
   @override
-  Future<Result<AuthSessionEntity>> call(VerifyOtpParams params) {
-    return _repository.verifyOtp(
+  Future<Result<PasswordLoginOutcome>> call(PasswordLoginParams params) {
+    return _repository.loginWithPassword(
+      phone: params.phone,
+      password: params.password,
+      deviceId: params.deviceId,
+      deviceName: params.deviceName,
+    );
+  }
+}
+
+class SetPasswordWithOtpParams {
+  const SetPasswordWithOtpParams({
+    required this.requestId,
+    required this.code,
+    required this.newPassword,
+    required this.deviceId,
+    this.deviceName,
+  });
+
+  final String requestId;
+  final String code;
+  final String newPassword;
+  final String deviceId;
+  final String? deviceName;
+}
+
+/// Sets the first password or resets a forgotten one with an SMS code, then signs in.
+class SetPasswordWithOtpUsecase extends Usecase<Result<AuthSessionEntity>, SetPasswordWithOtpParams> {
+  SetPasswordWithOtpUsecase(this._repository);
+
+  final AuthRepository _repository;
+
+  @override
+  Future<Result<AuthSessionEntity>> call(SetPasswordWithOtpParams params) {
+    return _repository.setPasswordWithOtp(
       requestId: params.requestId,
       code: params.code,
+      newPassword: params.newPassword,
       deviceId: params.deviceId,
       deviceName: params.deviceName,
     );

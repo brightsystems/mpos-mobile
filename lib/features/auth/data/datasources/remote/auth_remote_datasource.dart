@@ -5,6 +5,7 @@ import 'package:mpos_mobile/features/auth/data/mappers/auth_tokens_mapper.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/mpos_roles.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 
 class AuthRemoteDatasource implements AuthDatasource {
   AuthRemoteDatasource(this._client);
@@ -21,22 +22,44 @@ class AuthRemoteDatasource implements AuthDatasource {
   }
 
   @override
-  Future<ApiResponse<AuthSessionEntity>> verifyOtp({
-    required String requestId,
-    required String code,
+  Future<ApiResponse<PasswordLoginOutcome>> loginWithPassword({
+    required String phone,
+    required String password,
     required String deviceId,
     String? deviceName,
   }) {
     return _client.post(
-      '/auth/otp/verify',
+      '/auth/password/login',
+      body: {'phone': phone, 'password': password, 'deviceId': deviceId, 'deviceName': ?deviceName},
+      fromJson: (json) {
+        final map = json as Map<String, dynamic>;
+        if ((map['passwordSetupRequired'] ?? map['PasswordSetupRequired'] ?? false) == true) {
+          return const PasswordLoginOutcome.passwordSetupRequired();
+        }
+
+        return PasswordLoginOutcome.session(mapAuthTokens(map, deviceId: deviceId, loginMethod: LoginMethod.otp));
+      },
+    );
+  }
+
+  @override
+  Future<ApiResponse<AuthSessionEntity>> setPasswordWithOtp({
+    required String requestId,
+    required String code,
+    required String newPassword,
+    required String deviceId,
+    String? deviceName,
+  }) {
+    return _client.post(
+      '/auth/password/otp',
       body: {
         'requestId': requestId,
         'code': code,
+        'newPassword': newPassword,
         'deviceId': deviceId,
-        if (deviceName != null) 'deviceName': deviceName,
+        'deviceName': ?deviceName,
       },
-      fromJson: (json) =>
-          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+      fromJson: (json) => mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
     );
   }
 
@@ -59,8 +82,7 @@ class AuthRemoteDatasource implements AuthDatasource {
     return _client.post(
       '/auth/refresh',
       body: {'refreshToken': refreshToken, 'deviceId': deviceId},
-      fromJson: (json) =>
-          mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+      fromJson: (json) => mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
     );
   }
 }
