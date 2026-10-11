@@ -22,17 +22,27 @@ class AuthOtpSending extends AuthState {
   const AuthOtpSending();
 }
 
-/// OTP was sent; the phone-login screen moves to code entry.
+/// Why a password is being set: the account has none yet, or it was forgotten.
+enum PasswordSetupReason { firstTime, reset }
+
+/// A code was sent; the sign-in screen asks for it and a new password.
 class AuthOtpSent extends AuthState {
-  const AuthOtpSent({required this.phone, required this.requestId, required this.expiresInSeconds, this.devOtp});
+  const AuthOtpSent({
+    required this.phone,
+    required this.requestId,
+    required this.expiresInSeconds,
+    this.devOtp,
+    this.reason = PasswordSetupReason.reset,
+  });
 
   final String phone;
   final String requestId;
   final int expiresInSeconds;
   final String? devOtp;
+  final PasswordSetupReason reason;
 
   @override
-  List<Object?> get props => [phone, requestId, expiresInSeconds, devOtp];
+  List<Object?> get props => [phone, requestId, expiresInSeconds, devOtp, reason];
 }
 
 /// Signed in and has an organization -> route by role.

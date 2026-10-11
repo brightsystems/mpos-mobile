@@ -1,13 +1,22 @@
 import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/otp_request_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 
 abstract class AuthRepository {
   Future<Result<OtpRequestEntity>> requestOtp({required String phone});
 
-  Future<Result<AuthSessionEntity>> verifyOtp({
+  Future<Result<PasswordLoginOutcome>> loginWithPassword({
+    required String phone,
+    required String password,
+    required String deviceId,
+    String? deviceName,
+  });
+
+  Future<Result<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,
     required String code,
+    required String newPassword,
     required String deviceId,
     String? deviceName,
   });
