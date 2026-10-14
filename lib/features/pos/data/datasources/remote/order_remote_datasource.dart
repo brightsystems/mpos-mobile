@@ -452,9 +452,10 @@ class OrderRemoteDatasource implements OrderDatasource {
       // Amounts as the API calculates them (withholding, partial payments).
       discountAmount: reader.number('discountAmount'),
       withholdingAmount: reader.number('withholdingAmount'),
-      netPayableAmount: reader.number('netPayableAmount', fallback: reader.number('totalAmount')),
+      // Absent on API versions before partial payments: fall back to the app's own figures.
+      netPayableAmount: json.containsKey('netPayableAmount') ? reader.number('netPayableAmount') : null,
       paidAmount: reader.number('paidAmount'),
-      remainingAmount: reader.number('remainingAmount'),
+      remainingAmount: json.containsKey('remainingAmount') ? reader.number('remainingAmount') : null,
       paymentMode: reader.string('paymentMode', fallback: 'CASH'),
     );
   }
