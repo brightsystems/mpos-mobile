@@ -86,7 +86,7 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity})> lines,
+    required List<MemoLineInput> lines,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/invoice/memos',
@@ -95,7 +95,12 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
         'memoType': memoType,
         'reason': reason,
         'lines': [
-          for (final line in lines) {'orderLineId': line.orderLineId, 'quantity': line.quantity},
+          for (final line in lines)
+            {
+              'orderLineId': line.orderLineId,
+              'quantity': line.quantity,
+              if (line.unitPrice != null) 'unitPrice': line.unitPrice,
+            },
         ],
       },
       fromJson: (json) => _mapMemo(json as Map<String, dynamic>),
@@ -139,10 +144,18 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
       irn: reader.string('irn').isEmpty ? null : reader.string('irn'),
       signedQr: reader.string('signedQr').isEmpty ? null : reader.string('signedQr'),
       salesReceiptRrn: reader.string('salesReceiptRrn').isEmpty ? null : reader.string('salesReceiptRrn'),
+      salesReceiptQr: _optional(reader, 'salesReceiptQr'),
       documentNumber: reader.string('documentNumber').isEmpty ? null : reader.string('documentNumber'),
+      morDocumentType: _optional(reader, 'morDocumentType'),
       transactionType: reader.string('transactionType').isEmpty ? null : reader.string('transactionType'),
       failureReason: reader.string('failureReason').isEmpty ? null : reader.string('failureReason'),
       submittedAt: reader.dateTime('submittedAt'),
+      receiptRegisteredAt: reader.dateTime('receiptRegisteredAt'),
+      morAckDate: reader.dateTime('morAckDate'),
+      paymentMode: _optional(reader, 'paymentMode'),
+      incomeWithholdAmount: reader.number('incomeWithholdAmount'),
+      vatWithholdAmount: reader.number('vatWithholdAmount'),
+      seller: json['seller'] is Map ? _mapSeller(Map<String, dynamic>.from(json['seller'] as Map)) : null,
       notifiedAt: reader.dateTime('notifiedAt'),
       notificationPhone: reader.string('notificationPhone').isEmpty ? null : reader.string('notificationPhone'),
       cancelledAt: reader.dateTime('cancelledAt'),
@@ -151,6 +164,27 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
           : reader.string('cancellationReasonCode'),
       cancellationRemark: reader.string('cancellationRemark').isEmpty ? null : reader.string('cancellationRemark'),
     );
+  }
+
+  FiscalSellerEntity _mapSeller(Map<String, dynamic> json) {
+    final reader = JsonReader(json);
+
+    return FiscalSellerEntity(
+      legalName: reader.string('legalName'),
+      tin: reader.string('tin'),
+      subTin: _optional(reader, 'subTin'),
+      vatNumber: _optional(reader, 'vatNumber'),
+      vatRegistrationDate: _optional(reader, 'vatRegistrationDate'),
+      email: _optional(reader, 'email'),
+      phone: _optional(reader, 'phone'),
+      city: _optional(reader, 'city'),
+      logoUrl: _optional(reader, 'logoUrl'),
+    );
+  }
+
+  String? _optional(JsonReader reader, String key) {
+    final value = reader.string(key);
+    return value.isEmpty ? null : value;
   }
 
   FiscalMemoEntity _mapMemo(Map<String, dynamic> json) {

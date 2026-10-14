@@ -1,5 +1,6 @@
 import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 
@@ -38,15 +39,19 @@ abstract class OrderRepository {
     String? customerTin,
     double? receivedAmount,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    double? amount,
   });
 
   Future<Result<OrderEntity>> getOrder(String orderId);
 
   Future<Result<OrderEntity>> submitOrder({
     required String orderId,
-    required String customerPhone,
+    String? customerPhone,
     String? customerName,
     String? customerTin,
+    String? customerId,
+    String paymentMode = 'CASH',
   });
 
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({
@@ -60,4 +65,6 @@ abstract class OrderRepository {
   Future<Result<OrderWorkflowSettingsEntity>> getEffectiveWorkflowSettings();
 
   Future<Result<BusinessProfileEntity>> getBusinessProfile();
+
+  Future<Result<List<CustomerEntity>>> searchCustomers(String query);
 }

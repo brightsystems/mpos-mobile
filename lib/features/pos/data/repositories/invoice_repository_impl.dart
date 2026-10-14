@@ -41,9 +41,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       for (var attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           final invoice = await _datasource.getForOrder(orderId);
-          final status = invoice.status.toLowerCase();
 
-          if (status == 'submitted' || status == 'failed') {
+          if (invoice.isSettled) {
             return Result.success(data: invoice);
           }
         } catch (e) {
@@ -129,7 +128,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity})> lines,
+    required List<MemoLineInput> lines,
   }) async {
     try {
       final memo = await _datasource.registerMemo(

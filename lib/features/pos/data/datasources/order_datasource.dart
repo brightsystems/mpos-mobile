@@ -1,4 +1,5 @@
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 
@@ -34,6 +35,8 @@ abstract class OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    double? amount,
   });
 
   Future<({OrderPaymentEntity payment, OrderEntity order})> initiateChapa({
@@ -42,6 +45,7 @@ abstract class OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
   });
 
   Future<({OrderPaymentEntity payment, OrderEntity order})> initiateTelebirr({
@@ -50,6 +54,7 @@ abstract class OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
   });
 
   Future<({bool cash, bool chapa, bool telebirr})> getPaymentMethods({required String branchId});
@@ -60,12 +65,17 @@ abstract class OrderDatasource {
 
   Future<OrderEntity> submitOrder({
     required String orderId,
-    required String customerPhone,
+    String? customerPhone,
     String? customerName,
     String? customerTin,
+    String? customerId,
+    String paymentMode = 'CASH',
   });
 
   Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId});
 
   Future<BusinessProfileEntity> getBusinessProfile({required String branchId});
+
+  /// Saved customers matching [query] (name, TIN or phone).
+  Future<List<CustomerEntity>> searchCustomers({required String organizationId, String query = ''});
 }

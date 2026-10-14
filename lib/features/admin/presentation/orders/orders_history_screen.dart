@@ -808,7 +808,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ),
           ],
         ),
-        if (invoice.isSubmitted)
+        if (invoice.isRegistered)
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
@@ -831,7 +831,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             Expanded(
               child: Text('Credit/debit notes', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             ),
-            if (invoice.isSubmitted && (_detail?.lines.isNotEmpty ?? false))
+            if (invoice.isRegistered && (_detail?.lines.isNotEmpty ?? false))
               TextButton.icon(
                 onPressed: () => showRegisterMemoDialog(
                   context,

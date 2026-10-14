@@ -1,6 +1,7 @@
 import 'package:mpos_mobile/core/mock/mock_fixtures.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
@@ -168,6 +169,8 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    double? amount,
   }) async {
     await _simulateNetwork();
 
@@ -211,6 +214,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
   }) async {
     await _simulateNetwork();
 
@@ -248,6 +252,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
   }) async {
     await _simulateNetwork();
 
@@ -328,9 +333,11 @@ class FakeOrderDatasource implements OrderDatasource {
   @override
   Future<OrderEntity> submitOrder({
     required String orderId,
-    required String customerPhone,
+    String? customerPhone,
     String? customerName,
     String? customerTin,
+    String? customerId,
+    String paymentMode = 'CASH',
   }) async {
     await _simulateNetwork();
     final order = _requireOrder(orderId);
@@ -491,5 +498,31 @@ class FakeOrderDatasource implements OrderDatasource {
       customerPhone: customerPhone ?? order.customerPhone,
       customerName: customerName ?? order.customerName,
     );
+  }
+
+  @override
+  Future<List<CustomerEntity>> searchCustomers({required String organizationId, String query = ''}) async {
+    await _simulateNetwork();
+    const customers = [
+      CustomerEntity(
+        id: 'mock-customer-1',
+        type: 'Business',
+        transactionType: 'B2B',
+        legalName: 'Abebe Trading PLC',
+        tin: '0012345678',
+        isWithholdingAgent: true,
+      ),
+      CustomerEntity(
+        id: 'mock-customer-2',
+        type: 'Government',
+        transactionType: 'B2G',
+        legalName: 'Ministry of Revenues',
+        tin: '0000030603',
+      ),
+    ];
+    final needle = query.trim().toLowerCase();
+    return customers
+        .where((c) => needle.isEmpty || c.legalName.toLowerCase().contains(needle) || (c.tin ?? '').contains(needle))
+        .toList();
   }
 }

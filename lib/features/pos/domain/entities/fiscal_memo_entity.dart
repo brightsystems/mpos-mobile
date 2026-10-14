@@ -77,3 +77,7 @@ class FiscalMemoEntity extends Equatable {
   @override
   List<Object?> get props => [id, orderId, memoType, status, documentNumber, totalValue];
 }
+
+/// One credit/debit note line: the invoice item, its quantity and, when the amount was changed,
+/// the unit price it implies (pre-tax). A null unit price keeps the invoiced price.
+typedef MemoLineInput = ({String orderLineId, double quantity, double? unitPrice});
