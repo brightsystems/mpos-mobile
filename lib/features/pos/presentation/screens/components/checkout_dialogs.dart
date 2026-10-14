@@ -227,11 +227,14 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
     child: StatefulBuilder(
       builder: (dialogContext, setState) {
         final theme = Theme.of(dialogContext);
-        final payNow = double.tryParse(payNowController.text.trim()) ?? 0;
+        final planned = double.tryParse(payNowController.text.trim()) ?? 0;
         final received = double.tryParse(receivedController.text.trim()) ?? 0;
+        // Same rule as the web POS: cash handed over below the amount to pay makes this a
+        // partial payment of the cash received.
+        final payNow = received > 0 && received < planned ? received : planned;
         final isCash = paymentMethod == 'cash';
         final isPartial = isCash && payNow > 0 && payNow < remaining - 0.004;
-        final cashValid = payNow > 0 && payNow <= remaining + 0.004 && received >= payNow;
+        final cashValid = payNow > 0 && planned <= remaining + 0.004;
         final valid =
             phoneController.text.trim().isNotEmpty && _isValidTin(tinController.text) && (!isCash || cashValid);
 
