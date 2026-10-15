@@ -177,6 +177,12 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
       taxValue: reader.number('taxValue'),
       totalValue: reader.number('totalValue'),
       lines: reader.listOfMaps('lines').map(_mapMemoLine).toList(),
+      stage: reader.string('stage').isEmpty ? null : reader.string('stage'),
+      receiptNumber: reader.string('receiptNumber').isEmpty ? null : reader.string('receiptNumber'),
+      receiptRrn: reader.string('receiptRrn').isEmpty ? null : reader.string('receiptRrn'),
+      receiptError: reader.string('receiptError').isEmpty ? null : reader.string('receiptError'),
+      receiptAmount: reader.number('receiptAmount'),
+      refundAmount: reader.number('refundAmount'),
     );
   }
 
