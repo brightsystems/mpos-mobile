@@ -118,6 +118,7 @@ class PosCheckoutRequested extends PosEvent {
     this.customerId,
     this.receivedAmount,
     this.amount,
+    this.customerEmail,
   });
 
   final String orderId;
@@ -133,6 +134,9 @@ class PosCheckoutRequested extends PosEvent {
   /// Cash: amount to pay now (partial payment); null = the whole remaining balance.
   final double? amount;
 
+  /// Buyer email for emailed invoices and receipts.
+  final String? customerEmail;
+
   @override
   List<Object?> get props => [
     orderId,
@@ -143,6 +147,7 @@ class PosCheckoutRequested extends PosEvent {
     customerId,
     receivedAmount,
     amount,
+    customerEmail,
   ];
 }
 

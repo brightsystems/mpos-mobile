@@ -137,6 +137,7 @@ class OrderEntity extends Equatable {
     this.customerName,
     this.customerTin,
     this.customerId,
+    this.customerEmail,
     this.tableNumber,
     this.ticketNumber,
     this.source,
@@ -165,6 +166,9 @@ class OrderEntity extends Equatable {
 
   /// Saved customer linked to the sale (sets the invoice buyer and B2B/B2G type).
   final String? customerId;
+
+  /// Buyer email: invoices and receipts are emailed here when the business enables email.
+  final String? customerEmail;
   final String? tableNumber;
   final String? ticketNumber;
   final String? source;
@@ -243,6 +247,7 @@ class OrderEntity extends Equatable {
       customerName: customerName ?? this.customerName,
       customerTin: customerTin ?? this.customerTin,
       customerId: customerId,
+      customerEmail: customerEmail,
       tableNumber: tableNumber ?? this.tableNumber,
       ticketNumber: ticketNumber ?? this.ticketNumber,
       source: source ?? this.source,

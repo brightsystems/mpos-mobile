@@ -10,6 +10,7 @@ class CustomerEntity extends Equatable {
     required this.legalName,
     this.tin,
     this.phone,
+    this.email,
     this.isWithholdingAgent = false,
   });
 
@@ -23,6 +24,7 @@ class CustomerEntity extends Equatable {
   final String legalName;
   final String? tin;
   final String? phone;
+  final String? email;
   final bool isWithholdingAgent;
 
   @override

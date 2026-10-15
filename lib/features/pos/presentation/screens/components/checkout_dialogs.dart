@@ -37,11 +37,18 @@ bool _isValidTin(String value) {
 
 String? _blankToNull(String value) => value.trim().isEmpty ? null : value.trim();
 
+/// Empty is fine (no email); otherwise it must look like an address.
+bool _isValidEmail(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty || RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(trimmed);
+}
+
 void _showSubmitDialog(BuildContext context, OrderEntity order) {
   final bloc = context.read<PosBloc>();
   final phoneController = TextEditingController(text: order.customerPhone ?? '');
   final nameController = TextEditingController(text: order.customerName ?? '');
   final tinController = TextEditingController(text: order.customerTin ?? '');
+  final emailController = TextEditingController(text: order.customerEmail ?? '');
   final searchController = TextEditingController();
   var paymentMode = order.isCreditSale ? 'CREDIT' : 'CASH';
   CustomerEntity? customer;
@@ -77,6 +84,9 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
             tinController.text = picked.tin ?? '';
             if ((picked.phone ?? '').isNotEmpty) {
               phoneController.text = picked.phone!;
+            }
+            if ((picked.email ?? '').isNotEmpty) {
+              emailController.text = picked.email!;
             }
           });
         }
@@ -137,6 +147,13 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
             AppTextField(controller: nameController, labelText: 'Customer name (optional)'),
             const SizedBox(height: AppSizes.padding / 2),
             AppTextField(
+              controller: emailController,
+              labelText: 'Email (optional, invoice & receipts are emailed)',
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: AppSizes.padding / 2),
+            AppTextField(
               controller: tinController,
               labelText: 'Buyer TIN (optional, 10 digits)',
               hintText: '0012345678',
@@ -159,7 +176,7 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
             const SizedBox(height: AppSizes.padding),
             AppButton(
               text: busy ? 'Submitting…' : 'Submit & register invoice',
-              enabled: !busy && _isValidTin(tinController.text),
+              enabled: !busy && _isValidTin(tinController.text) && _isValidEmail(emailController.text),
               onTap: () async {
                 setState(() => busy = true);
 
@@ -170,6 +187,7 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
                   customerTin: _blankToNull(tinController.text),
                   customerId: customer?.id,
                   paymentMode: paymentMode,
+                  customerEmail: _blankToNull(emailController.text),
                 );
 
                 if (!dialogContext.mounted) return;
@@ -217,6 +235,7 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
   final phoneController = TextEditingController(text: order.customerPhone ?? '');
   final nameController = TextEditingController(text: order.customerName ?? '');
   final tinController = TextEditingController(text: order.customerTin ?? '');
+  final emailController = TextEditingController(text: order.customerEmail ?? '');
   final payNowController = TextEditingController(text: remaining.toStringAsFixed(2));
   final receivedController = TextEditingController(text: remaining.toStringAsFixed(2));
   var paymentMethod = methods.first.value;
@@ -236,7 +255,10 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
         final isPartial = isCash && payNow > 0 && payNow < remaining - 0.004;
         final cashValid = payNow > 0 && planned <= remaining + 0.004;
         final valid =
-            phoneController.text.trim().isNotEmpty && _isValidTin(tinController.text) && (!isCash || cashValid);
+            phoneController.text.trim().isNotEmpty &&
+            _isValidTin(tinController.text) &&
+            _isValidEmail(emailController.text) &&
+            (!isCash || cashValid);
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -264,6 +286,13 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
             ),
             const SizedBox(height: AppSizes.padding / 2),
             AppTextField(controller: nameController, labelText: 'Customer name (optional)'),
+            const SizedBox(height: AppSizes.padding / 2),
+            AppTextField(
+              controller: emailController,
+              labelText: 'Email (optional, receipt is emailed)',
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => setState(() {}),
+            ),
             const SizedBox(height: AppSizes.padding / 2),
             AppTextField(
               controller: tinController,
@@ -334,6 +363,7 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
                     customerName: _blankToNull(nameController.text),
                     customerTin: _blankToNull(tinController.text),
                     customerId: order.customerId,
+                    customerEmail: _blankToNull(emailController.text),
                     receivedAmount: isCash ? received : null,
                     amount: isPartial ? payNow : null,
                   ),

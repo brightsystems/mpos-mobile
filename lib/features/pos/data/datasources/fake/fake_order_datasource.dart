@@ -171,6 +171,7 @@ class FakeOrderDatasource implements OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     double? amount,
+    String? customerEmail,
   }) async {
     await _simulateNetwork();
 
@@ -215,6 +216,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerTin,
     Map<String, int>? lineQuantities,
     String? customerId,
+    String? customerEmail,
   }) async {
     await _simulateNetwork();
 
@@ -253,6 +255,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerTin,
     Map<String, int>? lineQuantities,
     String? customerId,
+    String? customerEmail,
   }) async {
     await _simulateNetwork();
 
@@ -338,6 +341,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerTin,
     String? customerId,
     String paymentMode = 'CASH',
+    String? customerEmail,
   }) async {
     await _simulateNetwork();
     final order = _requireOrder(orderId);

@@ -41,6 +41,7 @@ abstract class OrderRepository {
     Map<String, int>? lineQuantities,
     String? customerId,
     double? amount,
+    String? customerEmail,
   });
 
   Future<Result<OrderEntity>> getOrder(String orderId);
@@ -52,6 +53,7 @@ abstract class OrderRepository {
     String? customerTin,
     String? customerId,
     String paymentMode = 'CASH',
+    String? customerEmail,
   });
 
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({

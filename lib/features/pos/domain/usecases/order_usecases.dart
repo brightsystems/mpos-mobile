@@ -128,6 +128,7 @@ class SettleTicketParams {
     this.lineQuantities,
     this.customerId,
     this.amount,
+    this.customerEmail,
   });
 
   final String orderId;
@@ -143,6 +144,9 @@ class SettleTicketParams {
 
   /// Cash: pay part of the balance; null = the whole remaining balance.
   final double? amount;
+
+  /// Buyer email for emailed invoices and receipts.
+  final String? customerEmail;
 }
 
 class SettleTicketUsecase extends Usecase<Result<OrderEntity>, SettleTicketParams> {
@@ -161,5 +165,6 @@ class SettleTicketUsecase extends Usecase<Result<OrderEntity>, SettleTicketParam
     lineQuantities: params.lineQuantities,
     customerId: params.customerId,
     amount: params.amount,
+    customerEmail: params.customerEmail,
   );
 }

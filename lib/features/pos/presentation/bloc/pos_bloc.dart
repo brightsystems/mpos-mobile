@@ -353,6 +353,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         customerId: event.customerId,
         receivedAmount: event.receivedAmount,
         amount: event.amount,
+        customerEmail: event.customerEmail,
       ),
     );
 
