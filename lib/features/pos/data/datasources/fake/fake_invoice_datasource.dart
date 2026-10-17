@@ -131,7 +131,7 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity})> lines,
+    required List<({String orderLineId, int quantity, double? unitPrice})> lines,
   }) async {
     await _simulateMor();
 

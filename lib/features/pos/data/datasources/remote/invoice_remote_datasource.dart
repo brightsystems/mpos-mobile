@@ -86,7 +86,7 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity})> lines,
+    required List<({String orderLineId, int quantity, double? unitPrice})> lines,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/invoice/memos',
@@ -95,7 +95,13 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
         'memoType': memoType,
         'reason': reason,
         'lines': [
-          for (final line in lines) {'orderLineId': line.orderLineId, 'quantity': line.quantity},
+          for (final line in lines)
+            {
+              'orderLineId': line.orderLineId,
+              'quantity': line.quantity,
+              // Only a changed price is sent; otherwise the invoiced price applies.
+              if (line.unitPrice != null) 'unitPrice': line.unitPrice,
+            },
         ],
       },
       fromJson: (json) => _mapMemo(json as Map<String, dynamic>),
