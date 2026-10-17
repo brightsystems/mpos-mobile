@@ -35,7 +35,9 @@ class FiscalInvoiceEntity extends Equatable {
   final String? cancellationReasonCode;
   final String? cancellationRemark;
 
-  bool get isSubmitted => status.toLowerCase() == 'submitted';
+  /// Registered with MoR (has an IRN) and not voided: open or paid (Registered, Completed,
+  /// ReceiptFailed). Notes, voiding and the invoice PDF need this, also on closed orders.
+  bool get isSubmitted => !isCancelled && (irn?.trim().isNotEmpty ?? false);
 
   bool get isCancelled => status.toLowerCase() == 'cancelled';
 

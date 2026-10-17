@@ -261,7 +261,8 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSubmitted = status.toLowerCase() == 'submitted';
+    // Registered with MoR (open, paid or awaiting a receipt retry).
+    final isSubmitted = const ['submitted', 'registered', 'completed', 'receiptfailed'].contains(status.toLowerCase());
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
