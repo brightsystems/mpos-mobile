@@ -31,7 +31,7 @@ abstract class InvoiceRepository {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity})> lines,
+    required List<({String orderLineId, int quantity, double? unitPrice})> lines,
   });
 
   Future<Result<FiscalDocumentPdfEntity>> getMemoPdf({required String orderId, required String memoId});

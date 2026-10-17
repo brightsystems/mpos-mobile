@@ -74,8 +74,14 @@ void showRegisterMemoDialog(
 }) {
   var memoType = 'CRE';
   final reasonController = TextEditingController();
-  final quantities = <String, int>{};
+  // Prefilled with the invoiced quantity and unit price; the cashier edits them to the adjustment.
+  final quantities = <String, int>{for (final line in lines) line.id: line.maxQuantity.round()};
+  final priceControllers = <String, TextEditingController>{
+    for (final line in lines) line.id: TextEditingController(text: line.unitPrice.toStringAsFixed(2)),
+  };
   var busy = false;
+
+  double? priceOf(String lineId) => double.tryParse(priceControllers[lineId]!.text.trim());
 
   AppDialog.show(
     title: 'Issue credit/debit note',
@@ -83,8 +89,14 @@ void showRegisterMemoDialog(
     child: StatefulBuilder(
       builder: (dialogContext, setState) {
         final reason = reasonController.text.trim();
-        final hasLines = quantities.values.any((quantity) => quantity > 0);
-        final valid = reason.length >= 3 && reason.length <= 100 && hasLines;
+        final hasLines = lines.any((l) => (quantities[l.id] ?? 0) > 0 && (priceOf(l.id) ?? 0) > 0);
+        // Credit notes cannot exceed the invoiced price.
+        final pricesValid = lines.every((l) {
+          final price = priceOf(l.id);
+          return (quantities[l.id] ?? 0) == 0 || (price != null && price >= 0 && (memoType != 'CRE' || price <= l.unitPrice));
+        });
+        final noteTotal = lines.fold<double>(0, (sum, l) => sum + (quantities[l.id] ?? 0) * (priceOf(l.id) ?? 0));
+        final valid = reason.length >= 3 && reason.length <= 100 && hasLines && pricesValid;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -117,11 +129,32 @@ void showRegisterMemoDialog(
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        line.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            line.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(dialogContext).textTheme.bodySmall,
+                          ),
+                          Text(
+                            'Invoiced ${line.maxQuantity.round()} × ${line.unitPrice.toStringAsFixed(2)}',
+                            style: Theme.of(dialogContext).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(dialogContext).colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 84,
+                      child: TextField(
+                        controller: priceControllers[line.id],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.right,
+                        decoration: const InputDecoration(isDense: true, labelText: 'Unit price'),
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                     IconButton(
@@ -150,6 +183,18 @@ void showRegisterMemoDialog(
                   ],
                 ),
               ),
+            Text(
+              'Note total (pre-tax): ${noteTotal.toStringAsFixed(2)} ETB',
+              textAlign: TextAlign.right,
+              style: Theme.of(dialogContext).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            if (!pricesValid)
+              Text(
+                'A credit note cannot exceed the invoiced unit price.',
+                style: Theme.of(
+                  dialogContext,
+                ).textTheme.labelSmall?.copyWith(color: Theme.of(dialogContext).colorScheme.error),
+              ),
             const SizedBox(height: AppSizes.padding),
             AppButton(
               text: busy ? 'Registering…' : 'Register memo',
@@ -162,8 +207,13 @@ void showRegisterMemoDialog(
                   memoType: memoType,
                   reason: reason,
                   lines: [
-                    for (final entry in quantities.entries)
-                      if (entry.value > 0) (orderLineId: entry.key, quantity: entry.value),
+                    for (final line in lines)
+                      if ((quantities[line.id] ?? 0) > 0)
+                        (
+                          orderLineId: line.id,
+                          quantity: quantities[line.id]!,
+                          unitPrice: priceOf(line.id) == line.unitPrice ? null : priceOf(line.id),
+                        ),
                   ],
                 );
 
