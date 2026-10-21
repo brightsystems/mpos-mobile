@@ -10,6 +10,7 @@ import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_event.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_state.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/shift_gate.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/checkout_dialogs.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/payment_success_dialog.dart';
 import 'package:mpos_mobile/shared/widgets/app_button.dart';
@@ -56,6 +57,11 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Selling needs an open shift with a live MoR session on its register (as on the web POS).
+    return ShiftGate(child: _buildPos(context));
+  }
+
+  Widget _buildPos(BuildContext context) {
     return BlocConsumer<PosBloc, PosState>(
       listenWhen: (previous, current) =>
           current.errorMessage != previous.errorMessage ||
@@ -721,7 +727,7 @@ class _CartSummary extends StatelessWidget {
         row('Subtotal (excl. tax)', order.subtotal),
         row('Taxes', order.taxAmount),
         row('Total', order.totalAmount, bold: !showBreakdown),
-        if (order.withholdingAmount > 0) row('Withholding', -order.withholdingAmount),
+        if (order.withholdingAmount > 0) row('Withholding (if the buyer withholds)', order.withholdingAmount),
         if (order.paidAmount > 0) row('Paid so far', order.paidAmount),
         if (showBreakdown) row('To pay', order.remainingTotal, bold: true),
         if (!order.isDraft)

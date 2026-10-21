@@ -239,6 +239,11 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
   final payNowController = TextEditingController(text: remaining.toStringAsFixed(2));
   final receivedController = TextEditingController(text: remaining.toStringAsFixed(2));
   var paymentMethod = methods.first.value;
+  // Withholding the buyer may still keep (none once kept). By default the buyer pays the full
+  // amount (FULL receipt); a withholding agent may choose to withhold (PARTIAL receipt).
+  final alreadyKept = (order.totalAmount - order.netPayable).clamp(0, double.infinity);
+  final withholdingAvailable = (order.withholdingAmount - alreadyKept).clamp(0, double.infinity).toDouble();
+  var buyerWithholds = false;
 
   AppDialog.show(
     title: 'Payment',
@@ -246,14 +251,15 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
     child: StatefulBuilder(
       builder: (dialogContext, setState) {
         final theme = Theme.of(dialogContext);
-        final planned = double.tryParse(payNowController.text.trim()) ?? 0;
+        final payable = buyerWithholds ? remaining - withholdingAvailable : remaining;
+        final planned = buyerWithholds ? payable : double.tryParse(payNowController.text.trim()) ?? 0;
         final received = double.tryParse(receivedController.text.trim()) ?? 0;
         // Same rule as the web POS: cash handed over below the amount to pay makes this a
-        // partial payment of the cash received.
-        final payNow = received > 0 && received < planned ? received : planned;
+        // partial payment of the cash received (not when the buyer withholds: that settles it).
+        final payNow = !buyerWithholds && received > 0 && received < planned ? received : planned;
         final isCash = paymentMethod == 'cash';
-        final isPartial = isCash && payNow > 0 && payNow < remaining - 0.004;
-        final cashValid = payNow > 0 && planned <= remaining + 0.004;
+        final isPartial = isCash && !buyerWithholds && payNow > 0 && payNow < remaining - 0.004;
+        final cashValid = payNow > 0 && planned <= remaining + 0.004 && (!buyerWithholds || received + 0.004 >= payNow);
         final valid =
             phoneController.text.trim().isNotEmpty &&
             _isValidTin(tinController.text) &&
@@ -270,12 +276,28 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
             ),
             const SizedBox(height: AppSizes.padding / 2),
             _AmountRow(label: 'Total (incl. tax)', amount: order.totalAmount),
-            if (order.withholdingAmount > 0) ...[
-              _AmountRow(label: 'Withholding (kept by buyer)', amount: -order.withholdingAmount),
-              _AmountRow(label: 'Net payable', amount: order.netPayable),
-            ],
             if (order.paidAmount > 0) _AmountRow(label: 'Paid so far', amount: order.paidAmount),
             _AmountRow(label: 'Remaining', amount: remaining, bold: true),
+            if (withholdingAvailable > 0) ...[
+              const SizedBox(height: 4),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: buyerWithholds,
+                onChanged: (value) => setState(() {
+                  buyerWithholds = value ?? false;
+                  final amount = (buyerWithholds ? remaining - withholdingAvailable : remaining).toStringAsFixed(2);
+                  payNowController.text = amount;
+                  receivedController.text = amount;
+                }),
+                title: Text('Buyer withholds tax (−${CurrencyFormatter.format(withholdingAvailable)})'),
+                subtitle: Text(
+                  buyerWithholds
+                      ? 'The buyer pays ${CurrencyFormatter.format(remaining - withholdingAvailable)} and the receipt is PARTIAL.'
+                      : 'Off: the buyer pays the full amount (FULL receipt).',
+                ),
+              ),
+            ],
             const SizedBox(height: AppSizes.padding),
             AppTextField(
               controller: phoneController,
@@ -315,6 +337,7 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
               const SizedBox(height: AppSizes.padding),
               AppTextField(
                 controller: payNowController,
+                enabled: !buyerWithholds,
                 labelText: 'Amount to pay now',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) => setState(() {
@@ -366,6 +389,7 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
                     customerEmail: _blankToNull(emailController.text),
                     receivedAmount: isCash ? received : null,
                     amount: isPartial ? payNow : null,
+                    withholdTax: buyerWithholds,
                   ),
                 );
                 bloc.add(const PosCartCleared());

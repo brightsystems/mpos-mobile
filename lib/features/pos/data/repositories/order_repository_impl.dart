@@ -151,6 +151,7 @@ class OrderRepositoryImpl implements OrderRepository {
     String? customerId,
     double? amount,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     try {
       if (paymentMethod == 'cash') {
@@ -165,6 +166,7 @@ class OrderRepositoryImpl implements OrderRepository {
           customerId: customerId,
           amount: amount,
           customerEmail: customerEmail,
+          withholdTax: withholdTax,
         );
 
         return Result.success(data: paid);
@@ -180,6 +182,7 @@ class OrderRepositoryImpl implements OrderRepository {
                 lineQuantities: lineQuantities,
                 customerId: customerId,
                 customerEmail: customerEmail,
+                withholdTax: withholdTax,
               )
             : await _remoteDatasource.initiateChapa(
                 orderId: orderId,
@@ -189,6 +192,7 @@ class OrderRepositoryImpl implements OrderRepository {
                 lineQuantities: lineQuantities,
                 customerId: customerId,
                 customerEmail: customerEmail,
+                withholdTax: withholdTax,
               );
 
         final payments = [...initiated.order.payments, initiated.payment];
@@ -224,6 +228,7 @@ class OrderRepositoryImpl implements OrderRepository {
     String? customerId,
     String paymentMode = 'CASH',
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     try {
       final order = await _remoteDatasource.submitOrder(
@@ -234,6 +239,7 @@ class OrderRepositoryImpl implements OrderRepository {
         customerId: customerId,
         paymentMode: paymentMode,
         customerEmail: customerEmail,
+        withholdTax: withholdTax,
       );
       return Result.success(data: order);
     } catch (e) {

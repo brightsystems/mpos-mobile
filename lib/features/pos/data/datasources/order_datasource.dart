@@ -38,6 +38,7 @@ abstract class OrderDatasource {
     String? customerId,
     double? amount,
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<({OrderPaymentEntity payment, OrderEntity order})> initiateChapa({
@@ -48,6 +49,7 @@ abstract class OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<({OrderPaymentEntity payment, OrderEntity order})> initiateTelebirr({
@@ -58,6 +60,7 @@ abstract class OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<({bool cash, bool chapa, bool telebirr})> getPaymentMethods({required String branchId});
@@ -74,6 +77,7 @@ abstract class OrderDatasource {
     String? customerId,
     String paymentMode = 'CASH',
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId});

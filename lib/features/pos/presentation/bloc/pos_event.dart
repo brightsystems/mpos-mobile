@@ -119,6 +119,7 @@ class PosCheckoutRequested extends PosEvent {
     this.receivedAmount,
     this.amount,
     this.customerEmail,
+    this.withholdTax = false,
   });
 
   final String orderId;
@@ -137,6 +138,9 @@ class PosCheckoutRequested extends PosEvent {
   /// Buyer email for emailed invoices and receipts.
   final String? customerEmail;
 
+  /// The buyer withholds tax (B2B/B2G): pay the balance less the withholding.
+  final bool withholdTax;
+
   @override
   List<Object?> get props => [
     orderId,
@@ -148,6 +152,7 @@ class PosCheckoutRequested extends PosEvent {
     receivedAmount,
     amount,
     customerEmail,
+    withholdTax,
   ];
 }
 

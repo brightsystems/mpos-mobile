@@ -172,6 +172,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerId,
     double? amount,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     await _simulateNetwork();
 
@@ -217,6 +218,7 @@ class FakeOrderDatasource implements OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     await _simulateNetwork();
 
@@ -256,6 +258,7 @@ class FakeOrderDatasource implements OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     await _simulateNetwork();
 
@@ -342,6 +345,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String? customerId,
     String paymentMode = 'CASH',
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     await _simulateNetwork();
     final order = _requireOrder(orderId);

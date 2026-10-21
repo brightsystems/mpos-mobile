@@ -158,23 +158,12 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     final nextOrders = [...state.openOrders, result.data!];
     emit(
-      state.copyWith(
-        openOrders: nextOrders,
-        activeTicketId: result.data!.id,
-        isPanelExpanded: true,
-        clearError: true,
-      ),
+      state.copyWith(openOrders: nextOrders, activeTicketId: result.data!.id, isPanelExpanded: true, clearError: true),
     );
   }
 
   void _onTicketSelected(PosTicketSelected event, Emitter<PosState> emit) {
-    emit(
-      state.copyWith(
-        activeTicketId: event.ticketId,
-        isPanelExpanded: true,
-        clearError: true,
-      ),
-    );
+    emit(state.copyWith(activeTicketId: event.ticketId, isPanelExpanded: true, clearError: true));
   }
 
   Future<void> _onActiveTicketTableChanged(PosActiveTicketTableChanged event, Emitter<PosState> emit) async {
@@ -225,7 +214,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         state.copyWith(
           openOrders: [...state.openOrders, targetTicket],
           activeTicketId: targetTicket.id,
-            clearError: true,
+          clearError: true,
         ),
       );
     } else if (state.activeTicketId != targetTicket.id) {
@@ -354,6 +343,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         receivedAmount: event.receivedAmount,
         amount: event.amount,
         customerEmail: event.customerEmail,
+        withholdTax: event.withholdTax,
       ),
     );
 

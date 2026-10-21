@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import 'package:mpos_mobile/app/di/injection.dart';
+import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_memo_entity.dart';
@@ -58,6 +59,91 @@ Future<void> shareMemoPdf(BuildContext context, {required String orderId, requir
   await Printing.sharePdf(bytes: result.data!.bytes, filename: result.data!.fileName);
 }
 
+/// Sends the fiscal invoice or receipt to the buyer by SMS (a signed download link) or email (the
+/// PDF), the same calls as the web POS. [document] is 'invoice' or 'receipt'.
+void showSendDocumentDialog(
+  BuildContext context, {
+  required String orderId,
+  required String document,
+  String? phone,
+  String? email,
+}) {
+  var channel = 'sms';
+  final phoneController = TextEditingController(text: phone ?? '');
+  final emailController = TextEditingController(text: email ?? '');
+  var busy = false;
+
+  AppDialog.show(
+    title: document == 'invoice' ? 'Send invoice' : 'Send receipt',
+    leftButtonText: 'Back',
+    child: StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final target = channel == 'sms' ? phoneController.text.trim() : emailController.text.trim();
+        // SMS without a number goes to the order's customer phone.
+        final valid = channel == 'sms' || (target.contains('@') && target.contains('.'));
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'sms', label: Text('SMS'), icon: Icon(Icons.sms_outlined)),
+                ButtonSegment(value: 'email', label: Text('Email'), icon: Icon(Icons.email_outlined)),
+              ],
+              selected: {channel},
+              onSelectionChanged: (value) => setState(() => channel = value.first),
+            ),
+            const SizedBox(height: AppSizes.padding),
+            if (channel == 'sms')
+              AppTextField(
+                controller: phoneController,
+                labelText: 'Phone (blank: the order\'s customer)',
+                keyboardType: TextInputType.phone,
+                onChanged: (_) => setState(() {}),
+              )
+            else
+              AppTextField(
+                controller: emailController,
+                labelText: 'Email',
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
+              ),
+            const SizedBox(height: AppSizes.padding * 1.5),
+            AppButton(
+              text: busy ? 'Sending…' : 'Send',
+              enabled: valid && !busy,
+              onTap: () async {
+                setState(() => busy = true);
+
+                final response = await getIt<MposApiClient>().post<Object?>(
+                  '/orders/$orderId/$document/$channel',
+                  authenticated: true,
+                  body: channel == 'sms' ? {if (target.isNotEmpty) 'phone': target} : {'email': target},
+                  fromJson: (json) => json,
+                );
+
+                if (!dialogContext.mounted) return;
+
+                if (!response.success) {
+                  setState(() => busy = false);
+                  AppSnackBar.showError(
+                    response.errors.isNotEmpty ? response.errors.first : (response.message ?? 'Sending failed.'),
+                  );
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+                AppSnackBar.show(channel == 'sms' ? 'SMS sent.' : 'Email sent.');
+              },
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 /// Memo types accepted by MoR (same as web POS).
 const memoTypes = <({String value, String label})>[
   (value: 'CRE', label: 'Credit note (refund)'),
@@ -93,7 +179,8 @@ void showRegisterMemoDialog(
         // Credit notes cannot exceed the invoiced price.
         final pricesValid = lines.every((l) {
           final price = priceOf(l.id);
-          return (quantities[l.id] ?? 0) == 0 || (price != null && price >= 0 && (memoType != 'CRE' || price <= l.unitPrice));
+          return (quantities[l.id] ?? 0) == 0 ||
+              (price != null && price >= 0 && (memoType != 'CRE' || price <= l.unitPrice));
         });
         final noteTotal = lines.fold<double>(0, (sum, l) => sum + (quantities[l.id] ?? 0) * (priceOf(l.id) ?? 0));
         final valid = reason.length >= 3 && reason.length <= 100 && hasLines && pricesValid;
@@ -138,9 +225,9 @@ void showRegisterMemoDialog(
                           ),
                           Text(
                             'Invoiced ${line.maxQuantity.round()} × ${line.unitPrice.toStringAsFixed(2)}',
-                            style: Theme.of(dialogContext).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(dialogContext).colorScheme.outline,
-                            ),
+                            style: Theme.of(
+                              dialogContext,
+                            ).textTheme.labelSmall?.copyWith(color: Theme.of(dialogContext).colorScheme.outline),
                           ),
                         ],
                       ),

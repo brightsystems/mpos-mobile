@@ -92,7 +92,7 @@ class PaymentSuccessDialog {
           ),
           const SizedBox(height: AppSizes.padding),
           if (invoice != null) ...[
-            _InvoiceSection(invoice: invoice),
+            _InvoiceSection(invoice: invoice, phone: order.customerPhone, email: order.customerEmail),
           ] else ...[
             Text(
               MposConfig.mockMode
@@ -109,9 +109,11 @@ class PaymentSuccessDialog {
 }
 
 class _InvoiceSection extends StatefulWidget {
-  const _InvoiceSection({required this.invoice});
+  const _InvoiceSection({required this.invoice, this.phone, this.email});
 
   final FiscalInvoiceEntity invoice;
+  final String? phone;
+  final String? email;
 
   @override
   State<_InvoiceSection> createState() => _InvoiceSectionState();
@@ -119,6 +121,14 @@ class _InvoiceSection extends StatefulWidget {
 
 class _InvoiceSectionState extends State<_InvoiceSection> {
   late FiscalInvoiceEntity invoice = widget.invoice;
+
+  void _send(BuildContext context, String document) => showSendDocumentDialog(
+    context,
+    orderId: invoice.orderId,
+    document: document,
+    phone: widget.phone,
+    email: widget.email,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -242,13 +252,37 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => shareReceiptPdf(context, invoice.orderId),
-                      icon: const Icon(Icons.receipt_outlined, size: 18),
-                      label: const Text('Receipt PDF'),
+                      onPressed: () => _send(context, 'invoice'),
+                      icon: const Icon(Icons.send_outlined, size: 18),
+                      label: const Text('Send invoice'),
                     ),
                   ),
                 ],
               ),
+              // A cash sale paid in full is settled by the invoice itself; a receipt exists only
+              // once MoR registered one (credit sales and instalments).
+              if (invoice.salesReceiptRrn != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => shareReceiptPdf(context, invoice.orderId),
+                        icon: const Icon(Icons.receipt_outlined, size: 18),
+                        label: const Text('Receipt PDF'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _send(context, 'receipt'),
+                        icon: const Icon(Icons.send_outlined, size: 18),
+                        label: const Text('Send receipt'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (invoice.isRegistered)
                 Align(
                   alignment: Alignment.centerRight,

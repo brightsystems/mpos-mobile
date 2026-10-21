@@ -146,6 +146,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     String? customerId,
     double? amount,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/cash',
@@ -156,6 +157,8 @@ class OrderRemoteDatasource implements OrderDatasource {
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
         if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
         if (lineQuantities != null && lineQuantities.isNotEmpty) 'lineQuantities': lineQuantities,
         if (customerId != null) 'customerId': customerId,
         // Pay part of the balance; omitted = the whole remaining balance.
@@ -180,6 +183,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/chapa',
@@ -189,6 +193,8 @@ class OrderRemoteDatasource implements OrderDatasource {
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
         if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
         if (customerId != null) 'customerId': customerId,
       },
       fromJson: (json) => _mapChapaInit(json as Map<String, dynamic>),
@@ -220,6 +226,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     Map<String, int>? lineQuantities,
     String? customerId,
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/telebirr',
@@ -229,6 +236,8 @@ class OrderRemoteDatasource implements OrderDatasource {
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
         if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
         if (customerId != null) 'customerId': customerId,
         // Push the payment prompt to the customer's phone (as the web POS does).
         'useUssd': true,
@@ -314,6 +323,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     String? customerId,
     String paymentMode = 'CASH',
     String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/submit',
@@ -323,6 +333,8 @@ class OrderRemoteDatasource implements OrderDatasource {
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
         if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
         if (customerId != null) 'customerId': customerId,
         'paymentMode': paymentMode,
       },

@@ -42,6 +42,7 @@ abstract class OrderRepository {
     String? customerId,
     double? amount,
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<Result<OrderEntity>> getOrder(String orderId);
@@ -54,6 +55,7 @@ abstract class OrderRepository {
     String? customerId,
     String paymentMode = 'CASH',
     String? customerEmail,
+    bool withholdTax = false,
   });
 
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({
