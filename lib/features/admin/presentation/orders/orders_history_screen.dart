@@ -14,6 +14,7 @@ import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.
 import 'package:mpos_mobile/features/pos/presentation/screens/components/invoice_actions.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
 import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
+import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
 
 const _statusFilters = ['all', 'Draft', 'Paid', 'Cancelled'];
 const _pageSize = 25;
@@ -843,6 +844,17 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                   onRegistered: (memo) {
                     if (mounted) {
                       setState(() => _memos = [..._memos, memo]);
+                      if (memo.outcome.isNotEmpty) {
+                        if (memo.isReceiptStage && memo.receiptRrn == null) {
+                          AppSnackBar.showError(memo.outcome);
+                        } else {
+                          AppSnackBar.show(memo.outcome);
+                        }
+                      }
+                      // A note before full payment changes what the buyer still owes.
+                      if (memo.isInvoiceStage) {
+                        _load();
+                      }
                     }
                   },
                 ),
@@ -873,6 +885,24 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
                         ),
+                        if (memo.isReceiptStage && memo.receiptRrn != null)
+                          Text(
+                            '${memo.isCredit ? 'Refunded' : 'Collected'} '
+                            '${CurrencyFormatter.format(memo.receiptAmount)} · RRN ${memo.receiptRrn}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                          )
+                        else if (memo.isReceiptStage)
+                          Text(
+                            'Receipt failed: ${memo.receiptError ?? 'unknown error'}',
+                            style: textTheme.labelSmall?.copyWith(color: colorScheme.error),
+                          )
+                        else if (memo.isInvoiceStage)
+                          Text(
+                            'Before payment: balance ${memo.isCredit ? 'reduced' : 'increased'}',
+                            style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                          ),
                       ],
                     ),
                   ),

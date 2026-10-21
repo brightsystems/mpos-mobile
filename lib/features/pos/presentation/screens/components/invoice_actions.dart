@@ -3,7 +3,6 @@ import 'package:printing/printing.dart';
 
 import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
-import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_memo_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
@@ -75,13 +74,14 @@ void showRegisterMemoDialog(
 }) {
   var memoType = 'CRE';
   final reasonController = TextEditingController();
-  // Per item: quantity and the pre-tax amount (empty = unit price × quantity), as on the web POS.
-  final quantityControllers = {for (final line in lines) line.id: TextEditingController()};
-  final amountControllers = {for (final line in lines) line.id: TextEditingController()};
+  // Prefilled with the invoiced quantity and unit price; the cashier edits them to the adjustment.
+  final quantities = <String, int>{for (final line in lines) line.id: line.maxQuantity.round()};
+  final priceControllers = <String, TextEditingController>{
+    for (final line in lines) line.id: TextEditingController(text: line.unitPrice.toStringAsFixed(2)),
+  };
   var busy = false;
 
-  double quantityOf(String id) => double.tryParse(quantityControllers[id]!.text.trim()) ?? 0;
-  double? amountOf(String id) => double.tryParse(amountControllers[id]!.text.trim());
+  double? priceOf(String lineId) => double.tryParse(priceControllers[lineId]!.text.trim());
 
   AppDialog.show(
     title: 'Issue credit/debit note',
@@ -89,16 +89,14 @@ void showRegisterMemoDialog(
     child: StatefulBuilder(
       builder: (dialogContext, setState) {
         final reason = reasonController.text.trim();
-        final hasLines = lines.any((line) => quantityOf(line.id) > 0);
-        // Credit notes cannot exceed the invoiced quantity or amount.
-        final withinLimits =
-            memoType != 'CRE' ||
-            lines.every((line) {
-              final quantity = quantityOf(line.id);
-              final amount = amountOf(line.id);
-              return quantity <= line.maxQuantity && (amount == null || amount <= line.unitPrice * quantity + 0.004);
-            });
-        final valid = reason.length >= 3 && reason.length <= 100 && hasLines && withinLimits;
+        final hasLines = lines.any((l) => (quantities[l.id] ?? 0) > 0 && (priceOf(l.id) ?? 0) > 0);
+        // Credit notes cannot exceed the invoiced price.
+        final pricesValid = lines.every((l) {
+          final price = priceOf(l.id);
+          return (quantities[l.id] ?? 0) == 0 || (price != null && price >= 0 && (memoType != 'CRE' || price <= l.unitPrice));
+        });
+        final noteTotal = lines.fold<double>(0, (sum, l) => sum + (quantities[l.id] ?? 0) * (priceOf(l.id) ?? 0));
+        final valid = reason.length >= 3 && reason.length <= 100 && hasLines && pricesValid;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -125,47 +123,72 @@ void showRegisterMemoDialog(
             const SizedBox(height: AppSizes.padding / 2),
             for (final line in lines)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
                   children: [
-                    Text(
-                      '${line.name} · ${CurrencyFormatter.format(line.unitPrice)} × max ${_qty(line.maxQuantity)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(dialogContext).textTheme.bodySmall,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            line.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(dialogContext).textTheme.bodySmall,
+                          ),
+                          Text(
+                            'Invoiced ${line.maxQuantity.round()} × ${line.unitPrice.toStringAsFixed(2)}',
+                            style: Theme.of(dialogContext).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(dialogContext).colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            controller: quantityControllers[line.id],
-                            labelText: 'Qty',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: AppTextField(
-                            controller: amountControllers[line.id],
-                            enabled: quantityOf(line.id) > 0,
-                            labelText: 'Amount (pre-tax)',
-                            hintText: (line.unitPrice * quantityOf(line.id)).toStringAsFixed(2),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                      ],
+                    SizedBox(
+                      width: 84,
+                      child: TextField(
+                        controller: priceControllers[line.id],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.right,
+                        decoration: const InputDecoration(isDense: true, labelText: 'Unit price'),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: (quantities[line.id] ?? 0) <= 0
+                          ? null
+                          : () => setState(() {
+                              final next = (quantities[line.id] ?? 0) - 1;
+                              if (next <= 0) {
+                                quantities.remove(line.id);
+                              } else {
+                                quantities[line.id] = next;
+                              }
+                            }),
+                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                    ),
+                    SizedBox(width: 24, child: Center(child: Text('${quantities[line.id] ?? 0}'))),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      // Credit notes cannot exceed the invoiced quantity.
+                      onPressed: (memoType == 'CRE' && (quantities[line.id] ?? 0) >= line.maxQuantity.round())
+                          ? null
+                          : () => setState(() => quantities[line.id] = (quantities[line.id] ?? 0) + 1),
+                      icon: const Icon(Icons.add_circle_outline, size: 20),
                     ),
                   ],
                 ),
               ),
-            if (!withinLimits)
+            Text(
+              'Note total (pre-tax): ${noteTotal.toStringAsFixed(2)} ETB',
+              textAlign: TextAlign.right,
+              style: Theme.of(dialogContext).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            if (!pricesValid)
               Text(
-                'A credit note cannot exceed the invoiced quantity or amount.',
+                'A credit note cannot exceed the invoiced unit price.',
                 style: Theme.of(
                   dialogContext,
                 ).textTheme.labelSmall?.copyWith(color: Theme.of(dialogContext).colorScheme.error),
@@ -183,14 +206,11 @@ void showRegisterMemoDialog(
                   reason: reason,
                   lines: [
                     for (final line in lines)
-                      if (quantityOf(line.id) > 0)
+                      if ((quantities[line.id] ?? 0) > 0)
                         (
                           orderLineId: line.id,
-                          quantity: quantityOf(line.id),
-                          // A changed amount is sent as the unit price it implies (amount ÷ quantity).
-                          unitPrice: amountOf(line.id) == null
-                              ? null
-                              : (amountOf(line.id)! / quantityOf(line.id) * 10000).roundToDouble() / 10000,
+                          quantity: quantities[line.id]!.toDouble(),
+                          unitPrice: priceOf(line.id) == line.unitPrice ? null : priceOf(line.id),
                         ),
                   ],
                 );
@@ -213,8 +233,6 @@ void showRegisterMemoDialog(
     ),
   );
 }
-
-String _qty(double value) => value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
 
 /// Shows the MoR cancellation dialog. Calls [onCancelled] with the updated
 /// invoice when the cancellation succeeds.
