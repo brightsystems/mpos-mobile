@@ -33,8 +33,8 @@ Future<void> shareInvoicePdf(BuildContext context, String orderId) async {
   await Printing.sharePdf(bytes: result.data!.bytes, filename: result.data!.fileName);
 }
 
-Future<void> shareReceiptPdf(BuildContext context, String orderId) async {
-  final result = await getIt<InvoiceRepository>().getReceiptPdf(orderId);
+Future<void> shareReceiptPdf(BuildContext context, String orderId, {String? paymentId}) async {
+  final result = await getIt<InvoiceRepository>().getReceiptPdf(orderId, paymentId: paymentId);
 
   if (!context.mounted) return;
 

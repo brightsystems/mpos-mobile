@@ -266,9 +266,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
               value: _createdById ?? '',
               items: [
                 const DropdownMenuItem(value: '', child: Text('All staff')),
-                ..._members.map(
-                  (m) => DropdownMenuItem(value: m.userId, child: Text('${m.displayName} (${m.role})')),
-                ),
+                ..._members.map((m) => DropdownMenuItem(value: m.userId, child: Text('${m.displayName} (${m.role})'))),
               ],
               onChanged: _onWaiterChanged,
             ),
@@ -290,7 +288,12 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                 child: Center(child: AppProgressIndicator()),
               )
             else if (_error != null)
-              AppEmptyState(title: 'Could not load orders', subtitle: _error, buttonText: 'Retry', onTapButton: _loadOrders)
+              AppEmptyState(
+                title: 'Could not load orders',
+                subtitle: _error,
+                buttonText: 'Retry',
+                onTapButton: _loadOrders,
+              )
             else if (items.isEmpty)
               const AppEmptyState(title: 'No orders', subtitle: 'No orders match these filters.')
             else ...[
@@ -416,11 +419,17 @@ class _SummaryTiles extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _SummaryTile(label: 'Open drafts', value: '${summary.openDrafts}')),
+        Expanded(
+          child: _SummaryTile(label: 'Open drafts', value: '${summary.openDrafts}'),
+        ),
         const SizedBox(width: AppSizes.padding / 2),
-        Expanded(child: _SummaryTile(label: 'Paid today', value: '${summary.paidTodayCount}')),
+        Expanded(
+          child: _SummaryTile(label: 'Paid today', value: '${summary.paidTodayCount}'),
+        ),
         const SizedBox(width: AppSizes.padding / 2),
-        Expanded(child: _SummaryTile(label: 'Revenue today', value: CurrencyFormatter.compact(summary.paidTodayRevenue))),
+        Expanded(
+          child: _SummaryTile(label: 'Revenue today', value: CurrencyFormatter.compact(summary.paidTodayRevenue)),
+        ),
       ],
     );
   }
@@ -518,7 +527,10 @@ class _OrderCard extends StatelessWidget {
                   ),
                   if (order.paymentMethods.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(order.paymentMethods.join(', '), style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                    Text(
+                      order.paymentMethods.join(', '),
+                      style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    ),
                   ],
                 ],
               ),
@@ -559,10 +571,7 @@ class _Pager extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            onPressed: page > 1 ? () => onGoTo(page - 1) : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
+          IconButton(onPressed: page > 1 ? () => onGoTo(page - 1) : null, icon: const Icon(Icons.chevron_left)),
           Text('Page $page of $totalPages · $totalCount total', style: Theme.of(context).textTheme.bodySmall),
           IconButton(
             onPressed: page < totalPages ? () => onGoTo(page + 1) : null,
@@ -662,9 +671,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   Future<void> _load() async {
     final result = await _repository.getOrder(widget.orderId);
     final invoiceResult = await _invoiceRepository.getForOrder(widget.orderId);
-    final memosResult = invoiceResult.isSuccess
-        ? await _invoiceRepository.listMemos(widget.orderId)
-        : null;
+    final memosResult = invoiceResult.isSuccess ? await _invoiceRepository.listMemos(widget.orderId) : null;
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -691,15 +698,23 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
         child: _loading
-            ? const Padding(padding: EdgeInsets.all(AppSizes.padding * 2), child: Center(child: AppProgressIndicator()))
+            ? const Padding(
+                padding: EdgeInsets.all(AppSizes.padding * 2),
+                child: Center(child: AppProgressIndicator()),
+              )
             : _error != null
-            ? AppEmptyState(title: 'Could not load order', subtitle: _error, buttonText: 'Retry', onTapButton: () {
-                setState(() {
-                  _loading = true;
-                  _error = null;
-                });
-                _load();
-              })
+            ? AppEmptyState(
+                title: 'Could not load order',
+                subtitle: _error,
+                buttonText: 'Retry',
+                onTapButton: () {
+                  setState(() {
+                    _loading = true;
+                    _error = null;
+                  });
+                  _load();
+                },
+              )
             : _detail == null
             ? const AppEmptyState(title: 'Order not found')
             : SingleChildScrollView(
@@ -729,7 +744,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         if (_detail!.customerPhone.isNotEmpty) _detail!.customerPhone,
                       ].join(' · ').ifEmpty('—'),
                     ),
-                    if (_detail!.createdByName.isNotEmpty) _DetailRow(label: 'Served by', value: _detail!.createdByName),
+                    if (_detail!.createdByName.isNotEmpty)
+                      _DetailRow(label: 'Served by', value: _detail!.createdByName),
                     _DetailRow(label: 'Subtotal', value: CurrencyFormatter.format(_detail!.subtotal)),
                     _DetailRow(label: 'Tax', value: CurrencyFormatter.format(_detail!.taxAmount)),
                     _DetailRow(label: 'Total', value: CurrencyFormatter.format(_detail!.totalAmount), emphasize: true),
@@ -752,9 +768,39 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                       Text('No payments yet.', style: textTheme.bodySmall?.copyWith(color: colorScheme.outline))
                     else
                       ..._detail!.payments.map(
-                        (payment) => _LineRow(
-                          left: '${payment.method} · ${payment.status}',
-                          right: CurrencyFormatter.format(payment.amount),
+                        (payment) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _LineRow(
+                              left: '${payment.method} · ${payment.status}',
+                              right: CurrencyFormatter.format(payment.amount),
+                            ),
+                            // Each instalment has its own MoR receipt.
+                            if (payment.receiptRrn != null || payment.receiptError != null)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      [
+                                        if (payment.paidAt != null)
+                                          DateFormat('d MMM, HH:mm').format(payment.paidAt!.toLocal()),
+                                        payment.receiptRrn != null ? 'RRN ${payment.receiptRrn}' : 'receipt failed',
+                                      ].join(' · '),
+                                      style: textTheme.labelSmall?.copyWith(
+                                        color: payment.receiptRrn != null ? colorScheme.outline : colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                  if (payment.receiptRrn != null)
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      tooltip: 'Receipt PDF',
+                                      onPressed: () => shareReceiptPdf(context, widget.orderId, paymentId: payment.id),
+                                      icon: const Icon(Icons.receipt_outlined, size: 18),
+                                    ),
+                                ],
+                              ),
+                          ],
                         ),
                       ),
                     const SizedBox(height: AppSizes.padding),
@@ -797,14 +843,6 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 onPressed: () => shareInvoicePdf(context, widget.orderId),
                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                 label: const Text('Invoice PDF'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => shareReceiptPdf(context, widget.orderId),
-                icon: const Icon(Icons.receipt_outlined, size: 18),
-                label: const Text('Receipt PDF'),
               ),
             ),
           ],
@@ -946,9 +984,7 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: emphasize
-                  ? textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)
-                  : textTheme.bodyMedium,
+              style: emphasize ? textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700) : textTheme.bodyMedium,
             ),
           ),
         ],

@@ -356,22 +356,14 @@ class OrganizationRoleModel {
 }
 
 class PermissionModuleModel {
-  const PermissionModuleModel({
-    required this.module,
-    required this.label,
-    required this.actions,
-  });
+  const PermissionModuleModel({required this.module, required this.label, required this.actions});
 
   factory PermissionModuleModel.fromJson(Map<String, dynamic> json) {
     final reader = JsonReader(json);
     final actions = (json['actions'] as List<dynamic>? ?? const [])
         .map((e) => PermissionActionModel.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
-    return PermissionModuleModel(
-      module: reader.string('module'),
-      label: reader.string('label'),
-      actions: actions,
-    );
+    return PermissionModuleModel(module: reader.string('module'), label: reader.string('label'), actions: actions);
   }
 
   final String module;
@@ -380,11 +372,7 @@ class PermissionModuleModel {
 }
 
 class PermissionActionModel {
-  const PermissionActionModel({
-    required this.code,
-    required this.label,
-    required this.description,
-  });
+  const PermissionActionModel({required this.code, required this.label, required this.description});
 
   factory PermissionActionModel.fromJson(Map<String, dynamic> json) {
     final reader = JsonReader(json);
@@ -480,7 +468,11 @@ class AdminMenuItemModel {
 
   factory AdminMenuItemModel.fromJson(Map<String, dynamic> json) {
     final reader = JsonReader(json);
-    final taxes = reader.listOfMaps('taxes').map((t) => JsonReader(t).string('id')).where((id) => id.isNotEmpty).toList();
+    final taxes = reader
+        .listOfMaps('taxes')
+        .map((t) => JsonReader(t).string('id'))
+        .where((id) => id.isNotEmpty)
+        .toList();
     final taxIds = taxes.isNotEmpty
         ? taxes
         : ((json['taxIds'] as List<dynamic>?) ?? const []).map((e) => '$e').toList();
@@ -548,11 +540,7 @@ class HsnCodeModel {
 }
 
 class OrderSummaryModel {
-  const OrderSummaryModel({
-    required this.openDrafts,
-    required this.paidTodayCount,
-    required this.paidTodayRevenue,
-  });
+  const OrderSummaryModel({required this.openDrafts, required this.paidTodayCount, required this.paidTodayRevenue});
 
   factory OrderSummaryModel.fromJson(Map<String, dynamic> json) {
     final reader = JsonReader(json);
@@ -652,6 +640,8 @@ class OrderPaymentModel {
     required this.status,
     required this.amount,
     required this.paidAt,
+    this.receiptRrn,
+    this.receiptError,
   });
 
   factory OrderPaymentModel.fromJson(Map<String, dynamic> json) {
@@ -662,6 +652,8 @@ class OrderPaymentModel {
       status: reader.string('status'),
       amount: reader.number('amount'),
       paidAt: reader.dateTime('paidAt'),
+      receiptRrn: reader.string('receiptRrn').isEmpty ? null : reader.string('receiptRrn'),
+      receiptError: reader.string('receiptError').isEmpty ? null : reader.string('receiptError'),
     );
   }
 
@@ -670,6 +662,10 @@ class OrderPaymentModel {
   final String status;
   final double amount;
   final DateTime? paidAt;
+
+  /// This payment's own MoR sales receipt (each instalment gets one).
+  final String? receiptRrn;
+  final String? receiptError;
 }
 
 class OrderDetailModel {

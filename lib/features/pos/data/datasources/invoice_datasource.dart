@@ -12,7 +12,8 @@ abstract class InvoiceDatasource {
 
   Future<FiscalDocumentPdfEntity> getInvoicePdf(String orderId);
 
-  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId);
+  /// [paymentId] picks one instalment's receipt (default: the latest).
+  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId, {String? paymentId});
 
   Future<List<FiscalMemoEntity>> listMemos(String orderId);
 

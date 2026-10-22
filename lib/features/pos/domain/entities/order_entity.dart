@@ -99,6 +99,9 @@ class OrderPaymentEntity extends Equatable {
     this.ussdPushed = false,
     this.coveredLineIds = const [],
     this.coveredQuantities = const {},
+    this.paidAt,
+    this.receiptRrn,
+    this.receiptError,
   });
 
   final String id;
@@ -114,9 +117,16 @@ class OrderPaymentEntity extends Equatable {
   final bool ussdPushed;
   final List<String> coveredLineIds;
   final Map<String, int> coveredQuantities;
+  final DateTime? paidAt;
+
+  /// This payment's own MoR sales receipt (each instalment gets one).
+  final String? receiptRrn;
+  final String? receiptError;
+
+  bool get isCompleted => status == 'Completed';
 
   @override
-  List<Object?> get props => [id, method, status, amount, coveredLineIds, coveredQuantities];
+  List<Object?> get props => [id, method, status, amount, coveredLineIds, coveredQuantities, receiptRrn];
 }
 
 /// Order statuses that are finished (no further payment or edits).
