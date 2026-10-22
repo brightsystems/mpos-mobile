@@ -57,7 +57,8 @@ class InvoiceRemoteDatasource implements InvoiceDatasource {
   Future<FiscalDocumentPdfEntity> getInvoicePdf(String orderId) => _getPdf('/orders/$orderId/invoice/pdf');
 
   @override
-  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId) => _getPdf('/orders/$orderId/receipt/pdf');
+  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId, {String? paymentId}) =>
+      _getPdf('/orders/$orderId/receipt/pdf${paymentId == null ? '' : '?paymentId=${Uri.encodeComponent(paymentId)}'}');
 
   @override
   Future<FiscalDocumentPdfEntity> getMemoPdf({required String orderId, required String memoId}) =>

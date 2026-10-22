@@ -23,7 +23,8 @@ abstract class InvoiceRepository {
 
   Future<Result<FiscalDocumentPdfEntity>> getInvoicePdf(String orderId);
 
-  Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId);
+  /// [paymentId] picks one instalment's receipt (default: the latest).
+  Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId, {String? paymentId});
 
   Future<Result<List<FiscalMemoEntity>>> listMemos(String orderId);
 

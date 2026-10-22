@@ -107,7 +107,7 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
   }
 
   @override
-  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId) async {
+  Future<FiscalDocumentPdfEntity> getReceiptPdf(String orderId, {String? paymentId}) async {
     throw 'PDF documents are not available in mock mode.';
   }
 

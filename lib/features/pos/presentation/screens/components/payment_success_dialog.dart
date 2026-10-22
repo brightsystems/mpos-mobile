@@ -92,7 +92,12 @@ class PaymentSuccessDialog {
           ),
           const SizedBox(height: AppSizes.padding),
           if (invoice != null) ...[
-            _InvoiceSection(invoice: invoice, phone: order.customerPhone, email: order.customerEmail),
+            _InvoiceSection(
+              invoice: invoice,
+              phone: order.customerPhone,
+              email: order.customerEmail,
+              payments: order.payments,
+            ),
           ] else ...[
             Text(
               MposConfig.mockMode
@@ -109,11 +114,12 @@ class PaymentSuccessDialog {
 }
 
 class _InvoiceSection extends StatefulWidget {
-  const _InvoiceSection({required this.invoice, this.phone, this.email});
+  const _InvoiceSection({required this.invoice, this.phone, this.email, this.payments = const []});
 
   final FiscalInvoiceEntity invoice;
   final String? phone;
   final String? email;
+  final List<OrderPaymentEntity> payments;
 
   @override
   State<_InvoiceSection> createState() => _InvoiceSectionState();
@@ -133,6 +139,10 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Each instalment has its own MoR receipt, oldest first.
+    final receipted = widget.payments.where((p) => p.isCompleted && p.receiptRrn != null).toList()
+      ..sort((a, b) => (a.paidAt ?? DateTime(0)).compareTo(b.paidAt ?? DateTime(0)));
+    final hasReceipt = receipted.isNotEmpty || invoice.salesReceiptRrn != null;
 
     return Container(
       padding: const EdgeInsets.all(AppSizes.padding),
@@ -261,26 +271,28 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
               ),
               // A cash sale paid in full is settled by the invoice itself; a receipt exists only
               // once MoR registered one (credit sales and instalments).
-              if (invoice.salesReceiptRrn != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => shareReceiptPdf(context, invoice.orderId),
-                        icon: const Icon(Icons.receipt_outlined, size: 18),
-                        label: const Text('Receipt PDF'),
-                      ),
+              if (hasReceipt) ...[
+                const SizedBox(height: AppSizes.padding),
+                Text('Receipts', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                if (receipted.isEmpty)
+                  _ReceiptRow(
+                    label: 'RRN ${invoice.salesReceiptRrn}',
+                    onPdf: () => shareReceiptPdf(context, invoice.orderId),
+                  )
+                else
+                  for (final (index, payment) in receipted.indexed)
+                    _ReceiptRow(
+                      label:
+                          '${index + 1}. ${CurrencyFormatter.format(payment.amount)} · ${payment.method} · RRN ${payment.receiptRrn}',
+                      onPdf: () => shareReceiptPdf(context, invoice.orderId, paymentId: payment.id),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _send(context, 'receipt'),
-                        icon: const Icon(Icons.send_outlined, size: 18),
-                        label: const Text('Send receipt'),
-                      ),
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _send(context, 'receipt'),
+                    icon: const Icon(Icons.send_outlined, size: 18),
+                    label: const Text('Send latest receipt'),
+                  ),
                 ),
               ],
               if (invoice.isRegistered)
@@ -371,6 +383,28 @@ class _InvoiceRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ReceiptRow extends StatelessWidget {
+  const _ReceiptRow({required this.label, required this.onPdf});
+
+  final String label;
+  final VoidCallback onPdf;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Receipt PDF',
+          onPressed: onPdf,
+          icon: const Icon(Icons.receipt_outlined, size: 18),
+        ),
+      ],
     );
   }
 }

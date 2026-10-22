@@ -56,9 +56,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         }
       }
 
-      return Result.failure(
-        error: lastError ?? 'E-invoice is unavailable (MOR may not be configured).',
-      );
+      return Result.failure(error: lastError ?? 'E-invoice is unavailable (MOR may not be configured).');
     } catch (e) {
       return Result.failure(error: e);
     }
@@ -102,9 +100,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
-  Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId) async {
+  Future<Result<FiscalDocumentPdfEntity>> getReceiptPdf(String orderId, {String? paymentId}) async {
     try {
-      final pdf = await _datasource.getReceiptPdf(orderId);
+      final pdf = await _datasource.getReceiptPdf(orderId, paymentId: paymentId);
 
       return Result.success(data: pdf);
     } catch (e) {
@@ -131,12 +129,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required List<MemoLineInput> lines,
   }) async {
     try {
-      final memo = await _datasource.registerMemo(
-        orderId: orderId,
-        memoType: memoType,
-        reason: reason,
-        lines: lines,
-      );
+      final memo = await _datasource.registerMemo(orderId: orderId, memoType: memoType, reason: reason, lines: lines);
 
       return Result.success(data: memo);
     } catch (e) {

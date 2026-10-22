@@ -542,6 +542,9 @@ class OrderRemoteDatasource implements OrderDatasource {
       receivedAmount: reader.number('receivedAmount', fallback: -1) < 0 ? null : reader.number('receivedAmount'),
       changeAmount: reader.number('changeAmount', fallback: -1) < 0 ? null : reader.number('changeAmount'),
       coveredLineIds: const [],
+      paidAt: reader.dateTime('paidAt'),
+      receiptRrn: reader.string('receiptRrn').isEmpty ? null : reader.string('receiptRrn'),
+      receiptError: reader.string('receiptError').isEmpty ? null : reader.string('receiptError'),
     );
   }
 }
