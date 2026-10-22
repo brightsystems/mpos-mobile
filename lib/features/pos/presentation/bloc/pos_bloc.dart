@@ -56,11 +56,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<PosLineQuantityChanged>(_onLineQuantityChanged);
     on<PosLineDiscountChanged>(_onLineDiscountChanged);
     on<PosLineRemoved>(_onLineRemoved);
-    on<PosSplitQuantityChanged>(_onSplitQuantityChanged);
     on<PosCartCleared>(_onCartCleared);
     on<PosPanelExpandedChanged>(_onPanelExpandedChanged);
     on<PosCheckoutRequested>(_onCheckoutRequested);
     on<PosCheckoutDismissed>(_onCheckoutDismissed);
+    on<PosOrderUpdated>(_onOrderUpdated);
     on<PosTablesFocusCleared>(_onTablesFocusCleared);
   }
 
@@ -134,7 +134,6 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         filteredItems: filtered,
         openOrders: openOrders,
         activeTicketId: activeTicketId,
-        selectedSplitQuantities: const {},
         enableCash: methods?.cash ?? true,
         enableChapa: methods?.chapa ?? true,
         enableTelebirr: methods?.telebirr ?? false,
@@ -159,25 +158,12 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     final nextOrders = [...state.openOrders, result.data!];
     emit(
-      state.copyWith(
-        openOrders: nextOrders,
-        activeTicketId: result.data!.id,
-        selectedSplitQuantities: const {},
-        isPanelExpanded: true,
-        clearError: true,
-      ),
+      state.copyWith(openOrders: nextOrders, activeTicketId: result.data!.id, isPanelExpanded: true, clearError: true),
     );
   }
 
   void _onTicketSelected(PosTicketSelected event, Emitter<PosState> emit) {
-    emit(
-      state.copyWith(
-        activeTicketId: event.ticketId,
-        selectedSplitQuantities: const {},
-        isPanelExpanded: true,
-        clearError: true,
-      ),
-    );
+    emit(state.copyWith(activeTicketId: event.ticketId, isPanelExpanded: true, clearError: true));
   }
 
   Future<void> _onActiveTicketTableChanged(PosActiveTicketTableChanged event, Emitter<PosState> emit) async {
@@ -191,7 +177,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       UpdateTicketTableNumberParams(orderId: activeTicket.id, tableNumber: event.tableNumber),
     );
 
-    await _replaceOrderInState(emit, result, preserveSelection: true);
+    await _replaceOrderInState(emit, result);
   }
 
   List<MenuItemEntity> _filterItems(List<MenuItemEntity> items, String query) {
@@ -228,19 +214,18 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         state.copyWith(
           openOrders: [...state.openOrders, targetTicket],
           activeTicketId: targetTicket.id,
-          selectedSplitQuantities: const {},
           clearError: true,
         ),
       );
     } else if (state.activeTicketId != targetTicket.id) {
-      emit(state.copyWith(activeTicketId: targetTicket.id, selectedSplitQuantities: const {}, clearError: true));
+      emit(state.copyWith(activeTicketId: targetTicket.id, clearError: true));
     }
 
     final result = await _addItemToTicketUsecase(
       AddItemToTicketParams(orderId: targetTicket.id, menuItemId: event.item.id, quantity: event.quantity),
     );
 
-    await _replaceOrderInState(emit, result, preserveSelection: true);
+    await _replaceOrderInState(emit, result);
   }
 
   String _normalizeTableNumber(String? tableNumber) {
@@ -289,7 +274,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       UpdateTicketLineQuantityParams(orderId: activeTicket.id, lineId: event.lineId, quantity: event.quantity),
     );
 
-    await _replaceOrderInState(emit, result, preserveSelection: true);
+    await _replaceOrderInState(emit, result);
   }
 
   Future<void> _onLineDiscountChanged(PosLineDiscountChanged event, Emitter<PosState> emit) async {
@@ -303,7 +288,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       UpdateTicketLineDiscountParams(orderId: activeTicket.id, lineId: event.lineId, discount: event.discount),
     );
 
-    await _replaceOrderInState(emit, result, preserveSelection: true);
+    await _replaceOrderInState(emit, result);
   }
 
   Future<void> _onLineRemoved(PosLineRemoved event, Emitter<PosState> emit) async {
@@ -317,23 +302,15 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       RemoveTicketLineParams(orderId: activeTicket.id, lineId: event.lineId),
     );
 
-    await _replaceOrderInState(emit, result, preserveSelection: true);
-  }
-
-  void _onSplitQuantityChanged(PosSplitQuantityChanged event, Emitter<PosState> emit) {
-    final next = <String, int>{...state.selectedSplitQuantities};
-
-    if (event.quantity <= 0) {
-      next.remove(event.lineId);
-    } else {
-      next[event.lineId] = event.quantity;
-    }
-
-    emit(state.copyWith(selectedSplitQuantities: next));
+    await _replaceOrderInState(emit, result);
   }
 
   void _onCartCleared(PosCartCleared event, Emitter<PosState> emit) {
-    emit(state.copyWith(selectedSplitQuantities: const {}, isPanelExpanded: false));
+    emit(state.copyWith(isPanelExpanded: false));
+  }
+
+  void _onOrderUpdated(PosOrderUpdated event, Emitter<PosState> emit) {
+    emit(state.copyWith(openOrders: _mergeUpdatedOrder(state.openOrders, event.order), clearError: true));
   }
 
   void _onPanelExpandedChanged(PosPanelExpandedChanged event, Emitter<PosState> emit) {
@@ -350,46 +327,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     emit(state.copyWith(status: PosStatus.checkingOut, clearError: true));
 
-    final session = await _session();
-    final workflowSettings = state.workflowSettings;
-    // Approval workflow is for create-only roles (e.g. waiter). Staff who can collect
-    // payment should check out directly even when requireCashierApproval is enabled.
-    final requiresApproval = workflowSettings != null &&
-        !workflowSettings.isDirectPos &&
-        workflowSettings.requireCashierApproval &&
-        activeTicket.status == 'Draft' &&
-        !_canCollectPayment(session);
-    if (requiresApproval) {
-      final submitted = await _orderRepository.submitOrder(
-        orderId: activeTicket.id,
-        customerPhone: event.customerPhone,
-        customerName: event.customerName,
-        customerTin: event.customerTin,
-      );
-
-      if (!submitted.isSuccess || submitted.data == null) {
-        emit(
-          state.copyWith(
-            status: PosStatus.ready,
-            errorMessage: submitted.error?.toString() ?? 'Failed to submit order for approval.',
-          ),
-        );
-        return;
-      }
-
-      final submittedOrder = submitted.data!;
-      emit(
-        state.copyWith(
-          status: PosStatus.ready,
-          openOrders: _mergeUpdatedOrder(state.openOrders, submittedOrder),
-          selectedSplitQuantities: const {},
-          errorMessage: 'Order submitted for cashier approval.',
-        ),
-      );
+    if (!_canCollectPayment(await _session())) {
+      emit(state.copyWith(status: PosStatus.ready, errorMessage: 'Your role cannot collect payments.'));
       return;
     }
 
-    final lineQuantities = event.selectedOnly ? event.splitQuantities ?? state.selectedSplitQuantities : null;
     final result = await _settleTicketUsecase(
       SettleTicketParams(
         orderId: activeTicket.id,
@@ -397,8 +339,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         customerPhone: event.customerPhone,
         customerName: event.customerName,
         customerTin: event.customerTin,
+        customerId: event.customerId,
         receivedAmount: event.receivedAmount,
-        lineQuantities: lineQuantities,
+        amount: event.amount,
+        customerEmail: event.customerEmail,
+        withholdTax: event.withholdTax,
       ),
     );
 
@@ -410,7 +355,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     final order = result.data!;
     final updatedOrders = _mergeUpdatedOrder(state.openOrders, order);
-    emit(state.copyWith(openOrders: updatedOrders, selectedSplitQuantities: const {}));
+    emit(state.copyWith(openOrders: updatedOrders));
 
     if (event.paymentMethod == 'chapa' || event.paymentMethod == 'telebirr') {
       final electronicPayment = _findElectronicPayment(order, event.paymentMethod);
@@ -427,7 +372,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         return;
       }
 
-      if (electronicPayment.checkoutUrl != null) {
+      // Telebirr USSD: the prompt is on the customer's phone, no checkout page to open.
+      if (!electronicPayment.ussdPushed && electronicPayment.checkoutUrl != null) {
         final uri = Uri.tryParse(electronicPayment.checkoutUrl!);
 
         if (uri != null) {
@@ -477,7 +423,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     }
 
     final updatedOrders = _mergeUpdatedOrder(state.openOrders, paidOrder.data!);
-    emit(state.copyWith(openOrders: updatedOrders, selectedSplitQuantities: const {}));
+    emit(state.copyWith(openOrders: updatedOrders));
 
     await _finalizeSuccessfulSale(emit, paidOrder.data!);
   }
@@ -500,7 +446,6 @@ class PosBloc extends Bloc<PosEvent, PosState> {
             ? _resolveActiveTicketId(state.openOrders, excludingTicketId: order.id)
             : order.id,
         focusedTableNumber: order.isClosed ? null : (order.tableNumber ?? 'Walk-in'),
-        selectedSplitQuantities: const {},
         isPanelExpanded: false,
       ),
     );
@@ -528,30 +473,18 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     emit(state.copyWith(clearFocusedTableNumber: true));
   }
 
-  Future<void> _replaceOrderInState(
-    Emitter<PosState> emit,
-    Result<OrderEntity> result, {
-    required bool preserveSelection,
-  }) async {
+  Future<void> _replaceOrderInState(Emitter<PosState> emit, Result<OrderEntity> result) async {
     if (!result.isSuccess || result.data == null) {
       emit(state.copyWith(errorMessage: result.error?.toString() ?? 'Failed to update ticket.'));
       return;
     }
 
     final updated = result.data!;
-    final nextSelection = preserveSelection
-        ? Map<String, int>.fromEntries(
-            state.selectedSplitQuantities.entries.where(
-              (entry) => updated.unpaidLines.any((line) => line.id == entry.key),
-            ),
-          )
-        : const <String, int>{};
 
     emit(
       state.copyWith(
         openOrders: _mergeUpdatedOrder(state.openOrders, updated),
         activeTicketId: updated.id,
-        selectedSplitQuantities: nextSelection,
         clearError: true,
       ),
     );

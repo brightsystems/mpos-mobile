@@ -9,6 +9,7 @@ import 'package:mpos_mobile/core/media/media_service.dart';
 import 'package:mpos_mobile/core/media/api_media_service.dart';
 import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
+import 'package:mpos_mobile/features/pos/data/shift_api.dart';
 import 'package:mpos_mobile/core/theme/theme_cubit.dart';
 import 'package:mpos_mobile/features/admin/data/datasources/admin_datasource.dart';
 import 'package:mpos_mobile/features/admin/data/datasources/fake/fake_admin_datasource.dart';
@@ -219,6 +220,10 @@ void _registerApiDataLayer() {
 
   if (!getIt.isRegistered<InvoiceDatasource>()) {
     getIt.registerLazySingleton<InvoiceDatasource>(() => InvoiceRemoteDatasource(getIt<MposApiClient>()));
+  }
+
+  if (!getIt.isRegistered<ShiftApi>()) {
+    getIt.registerLazySingleton<ShiftApi>(() => ShiftApi(getIt<MposApiClient>(), getIt<SessionStorage>()));
   }
 
   if (!getIt.isRegistered<AdminDatasource>()) {

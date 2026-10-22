@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 
 sealed class PosEvent extends Equatable {
   const PosEvent();
@@ -93,16 +94,6 @@ class PosLineDiscountChanged extends PosEvent {
   List<Object?> get props => [lineId, discount];
 }
 
-class PosSplitQuantityChanged extends PosEvent {
-  const PosSplitQuantityChanged(this.lineId, this.quantity);
-
-  final String lineId;
-  final int quantity;
-
-  @override
-  List<Object?> get props => [lineId, quantity];
-}
-
 class PosCartCleared extends PosEvent {
   const PosCartCleared();
 }
@@ -116,6 +107,7 @@ class PosPanelExpandedChanged extends PosEvent {
   List<Object?> get props => [isExpanded];
 }
 
+/// Collects a payment on a submitted order (same request as the web POS).
 class PosCheckoutRequested extends PosEvent {
   const PosCheckoutRequested({
     required this.orderId,
@@ -123,9 +115,11 @@ class PosCheckoutRequested extends PosEvent {
     required this.customerPhone,
     this.customerName,
     this.customerTin,
+    this.customerId,
     this.receivedAmount,
-    this.selectedOnly = false,
-    this.splitQuantities,
+    this.amount,
+    this.customerEmail,
+    this.withholdTax = false,
   });
 
   final String orderId;
@@ -133,9 +127,19 @@ class PosCheckoutRequested extends PosEvent {
   final String customerPhone;
   final String? customerName;
   final String? customerTin;
+  final String? customerId;
+
+  /// Cash handed over by the customer.
   final double? receivedAmount;
-  final bool selectedOnly;
-  final Map<String, int>? splitQuantities;
+
+  /// Cash: amount to pay now (partial payment); null = the whole remaining balance.
+  final double? amount;
+
+  /// Buyer email for emailed invoices and receipts.
+  final String? customerEmail;
+
+  /// The buyer withholds tax (B2B/B2G): pay the balance less the withholding.
+  final bool withholdTax;
 
   @override
   List<Object?> get props => [
@@ -144,10 +148,22 @@ class PosCheckoutRequested extends PosEvent {
     customerPhone,
     customerName,
     customerTin,
+    customerId,
     receivedAmount,
-    selectedOnly,
-    splitQuantities,
+    amount,
+    customerEmail,
+    withholdTax,
   ];
+}
+
+/// An order changed outside the bloc (e.g. submitted from the checkout dialog).
+class PosOrderUpdated extends PosEvent {
+  const PosOrderUpdated(this.order);
+
+  final OrderEntity order;
+
+  @override
+  List<Object?> get props => [order];
 }
 
 class PosCheckoutDismissed extends PosEvent {

@@ -20,7 +20,7 @@ abstract class InvoiceDatasource {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity, double? unitPrice})> lines,
+    required List<MemoLineInput> lines,
   });
 
   Future<FiscalDocumentPdfEntity> getMemoPdf({required String orderId, required String memoId});

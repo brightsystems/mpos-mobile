@@ -6,7 +6,6 @@ import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.d
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
-import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 
 enum PosStatus { initial, loading, ready, checkingOut, success, failure }
 
@@ -18,7 +17,6 @@ class PosState extends Equatable {
     this.searchQuery = '',
     this.openOrders = const [],
     this.activeTicketId,
-    this.selectedSplitQuantities = const {},
     this.isPanelExpanded = false,
     this.errorMessage,
     this.lastOrder,
@@ -37,7 +35,6 @@ class PosState extends Equatable {
   final String searchQuery;
   final List<OrderEntity> openOrders;
   final String? activeTicketId;
-  final Map<String, int> selectedSplitQuantities;
   final bool isPanelExpanded;
   final String? errorMessage;
   final OrderEntity? lastOrder;
@@ -124,40 +121,11 @@ class PosState extends Equatable {
 
   double get cartSubtotal => cartLines.fold<double>(0, (sum, line) => sum + line.remainingLineTotal);
 
-  double get cartTaxAmount {
-    var total = 0.0;
+  /// Taxes on the open items, as the API calculated them.
+  double get cartTaxAmount => cartLines.fold<double>(0, (sum, line) => sum + line.remainingTaxAmount);
 
-    for (final line in cartLines) {
-      total += line.remainingTaxAmount;
-    }
-
-    return total;
-  }
-
-  double get cartTotal => cartSubtotal + cartTaxAmount;
-
-  double get selectedTotal {
-    if (selectedSplitQuantities.isEmpty) {
-      return 0;
-    }
-
-    var total = 0.0;
-
-    for (final line in cartLines) {
-      final selectedQuantity = selectedSplitQuantities[line.id] ?? 0;
-
-      if (selectedQuantity <= 0) {
-        continue;
-      }
-
-      final quantity = selectedQuantity > line.remainingQuantity ? line.remainingQuantity : selectedQuantity.toDouble();
-      final lineSubtotal = line.unitPrice * quantity;
-      final lineTax = calculateTaxesAmount(lineSubtotal, line.taxes);
-      total += lineSubtotal + lineTax;
-    }
-
-    return total;
-  }
+  /// What is still to collect on the active ticket (net of withholding and earlier payments).
+  double get cartTotal => activeTicket?.remainingTotal ?? 0;
 
   PosState copyWith({
     PosStatus? status,
@@ -166,7 +134,6 @@ class PosState extends Equatable {
     String? searchQuery,
     List<OrderEntity>? openOrders,
     String? activeTicketId,
-    Map<String, int>? selectedSplitQuantities,
     bool? isPanelExpanded,
     String? errorMessage,
     OrderEntity? lastOrder,
@@ -189,7 +156,6 @@ class PosState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       openOrders: openOrders ?? this.openOrders,
       activeTicketId: activeTicketId ?? this.activeTicketId,
-      selectedSplitQuantities: selectedSplitQuantities ?? this.selectedSplitQuantities,
       isPanelExpanded: isPanelExpanded ?? this.isPanelExpanded,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       lastOrder: clearLastOrder ? null : lastOrder ?? this.lastOrder,
@@ -211,7 +177,6 @@ class PosState extends Equatable {
     searchQuery,
     openOrders,
     activeTicketId,
-    selectedSplitQuantities,
     isPanelExpanded,
     errorMessage,
     lastOrder,

@@ -18,7 +18,7 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
 
     final existing = _invoices[order.id];
 
-    if (existing != null && existing.isSubmitted) {
+    if (existing != null && existing.isRegistered) {
       return existing;
     }
 
@@ -33,7 +33,7 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
     final invoice = FiscalInvoiceEntity(
       id: 'mock-invoice-$sequence',
       orderId: order.id,
-      status: 'Submitted',
+      status: 'Registered',
       irn: irn,
       signedQr: 'MOCK-QR-$irn',
       documentNumber: documentNumber,
@@ -131,13 +131,13 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
     required String orderId,
     required String memoType,
     required String reason,
-    required List<({String orderLineId, int quantity, double? unitPrice})> lines,
+    required List<MemoLineInput> lines,
   }) async {
     await _simulateMor();
 
     final invoice = _invoices[orderId];
 
-    if (invoice == null || !invoice.isSubmitted) {
+    if (invoice == null || !invoice.isRegistered) {
       throw 'A submitted e-invoice is required before issuing a memo.';
     }
 
@@ -148,7 +148,7 @@ class FakeInvoiceDatasource implements InvoiceDatasource {
       fiscalInvoiceId: invoice.id,
       memoType: memoType,
       reason: reason,
-      status: 'Submitted',
+      status: 'Registered',
       irn: 'MOCK-MEMO-IRN-${sequence.toString().padLeft(6, '0')}',
       documentNumber: (_documentSequence++).toString(),
       relatedDocumentNumber: invoice.documentNumber,

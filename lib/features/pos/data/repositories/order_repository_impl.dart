@@ -2,6 +2,7 @@ import 'package:mpos_mobile/core/common/result.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/order_repository.dart';
@@ -147,17 +148,25 @@ class OrderRepositoryImpl implements OrderRepository {
     String? customerTin,
     double? receivedAmount,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    double? amount,
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     try {
       if (paymentMethod == 'cash') {
         final order = await _remoteDatasource.getOrder(orderId);
         final paid = await _remoteDatasource.payCash(
           orderId: orderId,
-          receivedAmount: receivedAmount ?? order.remainingTotal,
+          receivedAmount: receivedAmount ?? amount ?? order.remainingTotal,
           customerPhone: customerPhone,
           customerName: customerName,
           customerTin: customerTin,
           lineQuantities: lineQuantities,
+          customerId: customerId,
+          amount: amount,
+          customerEmail: customerEmail,
+          withholdTax: withholdTax,
         );
 
         return Result.success(data: paid);
@@ -171,6 +180,9 @@ class OrderRepositoryImpl implements OrderRepository {
                 customerName: customerName,
                 customerTin: customerTin,
                 lineQuantities: lineQuantities,
+                customerId: customerId,
+                customerEmail: customerEmail,
+                withholdTax: withholdTax,
               )
             : await _remoteDatasource.initiateChapa(
                 orderId: orderId,
@@ -178,29 +190,15 @@ class OrderRepositoryImpl implements OrderRepository {
                 customerName: customerName,
                 customerTin: customerTin,
                 lineQuantities: lineQuantities,
+                customerId: customerId,
+                customerEmail: customerEmail,
+                withholdTax: withholdTax,
               );
 
         final payments = [...initiated.order.payments, initiated.payment];
 
         return Result.success(
-          data: OrderEntity(
-            id: initiated.order.id,
-            branchId: initiated.order.branchId,
-            orderNumber: initiated.order.orderNumber,
-            status: initiated.order.status,
-            subtotal: initiated.order.subtotal,
-            taxAmount: initiated.order.taxAmount,
-            totalAmount: initiated.order.totalAmount,
-            lines: initiated.order.lines,
-            payments: payments,
-            customerPhone: customerPhone,
-            customerName: customerName,
-            tableNumber: initiated.order.tableNumber,
-            ticketNumber: initiated.order.ticketNumber,
-            source: initiated.order.source,
-            assignedBranchMemberUserId: initiated.order.assignedBranchMemberUserId,
-            createdAt: initiated.order.createdAt,
-          ),
+          data: initiated.order.copyWith(payments: payments, customerPhone: customerPhone, customerName: customerName),
         );
       }
 
@@ -224,9 +222,13 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<Result<OrderEntity>> submitOrder({
     required String orderId,
-    required String customerPhone,
+    String? customerPhone,
     String? customerName,
     String? customerTin,
+    String? customerId,
+    String paymentMode = 'CASH',
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     try {
       final order = await _remoteDatasource.submitOrder(
@@ -234,6 +236,10 @@ class OrderRepositoryImpl implements OrderRepository {
         customerPhone: customerPhone,
         customerName: customerName,
         customerTin: customerTin,
+        customerId: customerId,
+        paymentMode: paymentMode,
+        customerEmail: customerEmail,
+        withholdTax: withholdTax,
       );
       return Result.success(data: order);
     } catch (e) {
@@ -308,6 +314,22 @@ class OrderRepositoryImpl implements OrderRepository {
 
       final profile = await _remoteDatasource.getBusinessProfile(branchId: session.branchId);
       return Result.success(data: profile);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<List<CustomerEntity>>> searchCustomers(String query) async {
+    try {
+      final session = await _sessionStorage.loadSession();
+
+      if (session == null || session.organizationId.isEmpty) {
+        return Result.failure(error: 'Not authenticated.');
+      }
+
+      final customers = await _remoteDatasource.searchCustomers(organizationId: session.organizationId, query: query);
+      return Result.success(data: customers);
     } catch (e) {
       return Result.failure(error: e);
     }

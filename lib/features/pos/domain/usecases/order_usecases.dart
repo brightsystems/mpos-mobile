@@ -126,6 +126,10 @@ class SettleTicketParams {
     this.customerTin,
     this.receivedAmount,
     this.lineQuantities,
+    this.customerId,
+    this.amount,
+    this.customerEmail,
+    this.withholdTax = false,
   });
 
   final String orderId;
@@ -135,6 +139,18 @@ class SettleTicketParams {
   final String? customerTin;
   final double? receivedAmount;
   final Map<String, int>? lineQuantities;
+
+  /// Saved customer linked to the sale.
+  final String? customerId;
+
+  /// Cash: pay part of the balance; null = the whole remaining balance.
+  final double? amount;
+
+  /// Buyer email for emailed invoices and receipts.
+  final String? customerEmail;
+
+  /// The buyer withholds tax (B2B/B2G): pay the balance less the withholding.
+  final bool withholdTax;
 }
 
 class SettleTicketUsecase extends Usecase<Result<OrderEntity>, SettleTicketParams> {
@@ -151,5 +167,9 @@ class SettleTicketUsecase extends Usecase<Result<OrderEntity>, SettleTicketParam
     customerTin: params.customerTin,
     receivedAmount: params.receivedAmount,
     lineQuantities: params.lineQuantities,
+    customerId: params.customerId,
+    amount: params.amount,
+    customerEmail: params.customerEmail,
+    withholdTax: params.withholdTax,
   );
 }

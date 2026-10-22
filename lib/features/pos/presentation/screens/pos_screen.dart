@@ -7,10 +7,11 @@ import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
-import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_event.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_state.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/shift_gate.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/checkout_dialogs.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/payment_success_dialog.dart';
 import 'package:mpos_mobile/shared/widgets/app_button.dart';
 import 'package:mpos_mobile/shared/widgets/app_dialog.dart';
@@ -56,6 +57,11 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Selling needs an open shift with a live MoR session on its register (as on the web POS).
+    return ShiftGate(child: _buildPos(context));
+  }
+
+  Widget _buildPos(BuildContext context) {
     return BlocConsumer<PosBloc, PosState>(
       listenWhen: (previous, current) =>
           current.errorMessage != previous.errorMessage ||
@@ -226,10 +232,7 @@ class _PosMenuItemCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 1,
-              child: MenuProductImage(
-                imageUrl: item.imageUrl,
-                borderRadius: BorderRadius.circular(4),
-              ),
+              child: MenuProductImage(imageUrl: item.imageUrl, borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 8),
             Text(
@@ -293,9 +296,7 @@ class _PosMenuItemCard extends StatelessWidget {
       rightButtonText: 'Add',
       leftButtonText: 'Cancel',
       onTapRightButton: (dialogContext) {
-        final tableNumber = (bloc.state.businessProfile?.showServicePoints ?? true)
-            ? tableController.text.trim()
-            : '';
+        final tableNumber = (bloc.state.businessProfile?.showServicePoints ?? true) ? tableController.text.trim() : '';
         bloc.add(PosItemAdded(item, quantity == 0 ? 1 : quantity, tableNumber: tableNumber));
         dialogContext.pop();
       },
@@ -402,19 +403,18 @@ class _PosCartHeader extends StatelessWidget {
                   const SizedBox(width: AppSizes.padding / 2),
                   if (state.businessProfile?.showServicePoints ?? true)
                     AppButton(
-                    height: 26,
-                    borderRadius: BorderRadius.circular(4),
-                    padding: const EdgeInsets.symmetric(horizontal: AppSizes.padding / 2),
-                    buttonColor: Theme.of(context).colorScheme.surface,
-                    borderColor: Theme.of(context).colorScheme.primary,
-                    textColor: Theme.of(context).colorScheme.primary,
-                    text: activeTicket == null
-                        ? '${state.vocabulary.servicePoint} optional'
-                        : 'Edit ${state.vocabulary.servicePoint.toLowerCase()}',
-                    onTap: () => _showTableDialog(context, activeTicket?.tableNumber),
-                  ),
-                  if (state.businessProfile?.showServicePoints ?? true)
-                    const SizedBox(width: AppSizes.padding / 2),
+                      height: 26,
+                      borderRadius: BorderRadius.circular(4),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSizes.padding / 2),
+                      buttonColor: Theme.of(context).colorScheme.surface,
+                      borderColor: Theme.of(context).colorScheme.primary,
+                      textColor: Theme.of(context).colorScheme.primary,
+                      text: activeTicket == null
+                          ? '${state.vocabulary.servicePoint} optional'
+                          : 'Edit ${state.vocabulary.servicePoint.toLowerCase()}',
+                      onTap: () => _showTableDialog(context, activeTicket?.tableNumber),
+                    ),
+                  if (state.businessProfile?.showServicePoints ?? true) const SizedBox(width: AppSizes.padding / 2),
                   AppButton(
                     height: 26,
                     borderRadius: BorderRadius.circular(4),
@@ -567,26 +567,7 @@ class _PosCartPanel extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.all(AppSizes.padding),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          CurrencyFormatter.format(state.cartTotal),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        if (state.cartTaxAmount > 0)
-                          Text(
-                            'Incl. tax ${CurrencyFormatter.format(state.cartTaxAmount)}',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+                child: _CartSummary(order: state.activeTicket!),
               ),
             ],
           ),
@@ -633,7 +614,7 @@ class _PosCartFooter extends StatelessWidget {
                   text: isCheckingOut
                       ? 'Processing...'
                       : isExpanded
-                      ? 'Pay'
+                      ? (activeTicket?.isDraft ?? true ? 'Checkout' : 'Pay')
                       : state.cartLines.isEmpty
                       ? 'Cart'
                       : activeTicket == null
@@ -644,243 +625,19 @@ class _PosCartFooter extends StatelessWidget {
                     if (activeTicket == null) {
                       AppSnackBar.show('Add items to the cart first.');
                     } else if (isExpanded) {
-                      _showPaymentDialog(context, ticket: activeTicket, selectedOnly: false);
+                      startCheckout(context, activeTicket);
                     } else {
                       panelController.open();
                     }
                   },
                 ),
               ),
-              if (isExpanded) const SizedBox(width: AppSizes.padding / 2),
-              if (isExpanded)
-                Expanded(
-                  child: AppButton(
-                    fontSize: 12,
-                    text: isCheckingOut ? 'Processing...' : 'Split',
-                    buttonColor: Theme.of(context).colorScheme.surface,
-                    borderColor: Theme.of(context).colorScheme.primary,
-                    textColor: Theme.of(context).colorScheme.primary,
-                    enabled: !isCheckingOut,
-                    onTap: () {
-                      if (activeTicket == null) {
-                        AppSnackBar.show('Add items to the cart first.');
-                        return;
-                      }
-
-                      _showLinePickerDialog(context, activeTicket);
-                    },
-                  ),
-                ),
             ],
           ),
         );
       },
     );
   }
-
-  void _showLinePickerDialog(BuildContext context, OrderEntity ticket) {
-    final splitQuantities = <String, int>{};
-
-    AppDialog.show(
-      title: 'Split items',
-      leftButtonText: 'Cancel',
-      rightButtonText: 'Continue',
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: ticket.unpaidLines.map((line) {
-              final selectedQuantity = splitQuantities[line.id] ?? 0;
-              final subtotal = line.unitPrice * selectedQuantity;
-              final tax = calculateTaxesAmount(subtotal, line.taxes);
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppSizes.padding / 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(line.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          Text(
-                            'Open ${line.remainingQuantity.round()} · ${CurrencyFormatter.format(line.unitPrice)} each',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: selectedQuantity <= 0
-                          ? null
-                          : () => setState(() {
-                              final next = selectedQuantity - 1;
-
-                              if (next <= 0) {
-                                splitQuantities.remove(line.id);
-                              } else {
-                                splitQuantities[line.id] = next;
-                              }
-                            }),
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    SizedBox(width: 28, child: Center(child: Text('$selectedQuantity'))),
-                    IconButton(
-                      onPressed: selectedQuantity >= line.remainingQuantity.round()
-                          ? null
-                          : () => setState(() => splitQuantities[line.id] = selectedQuantity + 1),
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                    SizedBox(
-                      width: 88,
-                      child: Text(CurrencyFormatter.format(subtotal + tax), textAlign: TextAlign.end),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          );
-        },
-      ),
-      onTapRightButton: (dialogContext) {
-        if (splitQuantities.isEmpty) {
-          return;
-        }
-
-        dialogContext.pop();
-        _showPaymentDialog(context, ticket: ticket, selectedOnly: true, splitQuantities: splitQuantities);
-      },
-    );
-  }
-
-  void _showPaymentDialog(
-    BuildContext context, {
-    required OrderEntity ticket,
-    required bool selectedOnly,
-    Map<String, int>? splitQuantities,
-  }) {
-    final state = context.read<PosBloc>().state;
-    final methods = state.enabledPaymentMethods;
-
-    if (methods.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No payment methods are enabled for this business.')),
-      );
-      return;
-    }
-
-    final phoneController = TextEditingController(text: ticket.customerPhone ?? '');
-    final nameController = TextEditingController(text: ticket.customerName ?? '');
-    final tinController = TextEditingController(text: ticket.customerTin ?? '');
-    final total = selectedOnly
-        ? ticket.unpaidLines.fold<double>(0, (sum, line) {
-            final selectedQuantity = splitQuantities?[line.id] ?? 0;
-
-            if (selectedQuantity <= 0) {
-              return sum;
-            }
-
-            final subtotal = line.unitPrice * selectedQuantity;
-            final tax = calculateTaxesAmount(subtotal, line.taxes);
-            return sum + subtotal + tax;
-          })
-        : ticket.unpaidLines.fold<double>(0, (sum, line) => sum + line.remainingLineTotal + line.remainingTaxAmount);
-    var paymentMethod = methods.first.value;
-    final amountController = TextEditingController(text: total.toStringAsFixed(2));
-
-    AppDialog.show(
-      title: selectedOnly ? 'Split payment' : 'Pay ${state.vocabulary.ticket.toLowerCase()}',
-      leftButtonText: 'Cancel',
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppTextField(
-                controller: phoneController,
-                labelText: 'Customer phone',
-                hintText: '0912345678',
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: AppSizes.padding),
-              AppTextField(controller: nameController, labelText: 'Customer name (optional)'),
-              const SizedBox(height: AppSizes.padding),
-              AppTextField(
-                controller: tinController,
-                labelText: 'Buyer TIN (optional, 10 digits)',
-                hintText: '0012345678',
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: AppSizes.padding),
-              if (paymentMethod == 'cash')
-                AppTextField(
-                  controller: amountController,
-                  labelText: 'Received amount',
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setState(() {}),
-                ),
-              const SizedBox(height: AppSizes.padding),
-              DropdownButtonFormField<String>(
-                initialValue: paymentMethod,
-                decoration: const InputDecoration(labelText: 'Payment method'),
-                items: [
-                  for (final method in methods)
-                    DropdownMenuItem(value: method.value, child: Text(method.label)),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => paymentMethod = value);
-                  }
-                },
-              ),
-              const SizedBox(height: AppSizes.padding / 1.5),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Total ${CurrencyFormatter.format(total)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(height: AppSizes.padding * 1.5),
-              AppButton(
-                text: 'Confirm payment',
-                enabled:
-                    phoneController.text.trim().isNotEmpty &&
-                    _isValidTinInput(tinController.text) &&
-                    (paymentMethod == 'chapa' ||
-                        paymentMethod == 'telebirr' ||
-                        (double.tryParse(amountController.text) ?? 0) >= total),
-                onTap: () {
-                  final bloc = context.read<PosBloc>();
-                  context.read<PosBloc>().add(
-                    PosCheckoutRequested(
-                      orderId: ticket.id,
-                      paymentMethod: paymentMethod,
-                      customerPhone: phoneController.text.trim(),
-                      customerName: nameController.text.trim().isEmpty ? null : nameController.text.trim(),
-                      customerTin: tinController.text.trim().isEmpty ? null : tinController.text.trim(),
-                      receivedAmount: paymentMethod == 'cash' ? double.tryParse(amountController.text) : null,
-                      selectedOnly: selectedOnly,
-                      splitQuantities: selectedOnly ? splitQuantities : null,
-                    ),
-                  );
-                  bloc.add(const PosCartCleared());
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-bool _isValidTinInput(String value) {
-  final trimmed = value.trim();
-
-  return trimmed.isEmpty || RegExp(r'^\d{10}$').hasMatch(trimmed);
 }
 
 void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
@@ -903,10 +660,7 @@ void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
           children: [
             Text(line.name, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: AppSizes.padding / 2),
-            Text(
-              'Line value ${CurrencyFormatter.format(maxDiscount)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text('Line value ${CurrencyFormatter.format(maxDiscount)}', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: AppSizes.padding),
             AppTextField(
               controller: discountController,
@@ -938,4 +692,51 @@ void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
       },
     ),
   );
+}
+
+/// Order amounts as the API calculates them (same figures as the web POS).
+class _CartSummary extends StatelessWidget {
+  const _CartSummary({required this.order});
+
+  final OrderEntity order;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final showBreakdown = order.withholdingAmount > 0 || order.paidAmount > 0;
+
+    Widget row(String label, double amount, {bool bold = false}) {
+      final style = (bold ? textTheme.bodyMedium : textTheme.labelSmall)?.copyWith(
+        fontWeight: bold ? FontWeight.bold : null,
+      );
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: style),
+            Text(CurrencyFormatter.format(amount), style: style),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row('Subtotal (excl. tax)', order.subtotal),
+        row('Taxes', order.taxAmount),
+        row('Total', order.totalAmount, bold: !showBreakdown),
+        if (order.withholdingAmount > 0) row('Withholding (if the buyer withholds)', order.withholdingAmount),
+        if (order.paidAmount > 0) row('Paid so far', order.paidAmount),
+        if (showBreakdown) row('To pay', order.remainingTotal, bold: true),
+        if (!order.isDraft)
+          Text(
+            order.isCreditSale ? 'Credit sale · invoice registered' : 'Cash sale · invoice registered',
+            textAlign: TextAlign.end,
+            style: textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
+          ),
+      ],
+    );
+  }
 }

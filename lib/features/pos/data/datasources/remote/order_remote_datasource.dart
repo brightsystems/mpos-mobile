@@ -2,6 +2,7 @@ import 'package:mpos_mobile/core/network/json_reader.dart';
 import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/features/pos/data/datasources/order_datasource.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/tax_rate_entity.dart';
@@ -16,7 +17,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     final response = await _client.post(
       '/branches/$branchId/orders',
       authenticated: true,
-      body: {if (clientOrderId != null) 'clientOrderId': clientOrderId},
+      body: {'source': 'POS', if (clientOrderId != null) 'clientOrderId': clientOrderId},
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -50,7 +51,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     final response = await _client.post(
       '/branches/$branchId/orders',
       authenticated: true,
-      body: {'tableNumber': tableNumber},
+      body: {'source': 'POS', 'tableNumber': tableNumber},
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -142,6 +143,10 @@ class OrderRemoteDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    double? amount,
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/cash',
@@ -151,7 +156,13 @@ class OrderRemoteDatasource implements OrderDatasource {
         'customerPhone': customerPhone,
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
+        if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
         if (lineQuantities != null && lineQuantities.isNotEmpty) 'lineQuantities': lineQuantities,
+        if (customerId != null) 'customerId': customerId,
+        // Pay part of the balance; omitted = the whole remaining balance.
+        if (amount != null) 'amount': amount,
       },
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
@@ -170,6 +181,9 @@ class OrderRemoteDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/chapa',
@@ -178,6 +192,10 @@ class OrderRemoteDatasource implements OrderDatasource {
         'customerPhone': customerPhone,
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
+        if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
+        if (customerId != null) 'customerId': customerId,
       },
       fromJson: (json) => _mapChapaInit(json as Map<String, dynamic>),
     );
@@ -206,6 +224,9 @@ class OrderRemoteDatasource implements OrderDatasource {
     String? customerName,
     String? customerTin,
     Map<String, int>? lineQuantities,
+    String? customerId,
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/pay/telebirr',
@@ -214,6 +235,12 @@ class OrderRemoteDatasource implements OrderDatasource {
         'customerPhone': customerPhone,
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
+        if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
+        if (customerId != null) 'customerId': customerId,
+        // Push the payment prompt to the customer's phone (as the web POS does).
+        'useUssd': true,
       },
       fromJson: (json) => _mapChapaInit(json as Map<String, dynamic>, methodFallback: 'Telebirr'),
     );
@@ -290,17 +317,26 @@ class OrderRemoteDatasource implements OrderDatasource {
   @override
   Future<OrderEntity> submitOrder({
     required String orderId,
-    required String customerPhone,
+    String? customerPhone,
     String? customerName,
     String? customerTin,
+    String? customerId,
+    String paymentMode = 'CASH',
+    String? customerEmail,
+    bool withholdTax = false,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/submit',
       authenticated: true,
       body: {
-        'customerPhone': customerPhone,
+        if (customerPhone != null && customerPhone.isNotEmpty) 'customerPhone': customerPhone,
         if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
         if (customerTin != null && customerTin.isNotEmpty) 'customerTin': customerTin,
+        if (customerEmail != null && customerEmail.isNotEmpty) 'customerEmail': customerEmail,
+        // The buyer keeps the withholding: this payment is the balance less the withholding.
+        if (withholdTax) 'withholdTax': true,
+        if (customerId != null) 'customerId': customerId,
+        'paymentMode': paymentMode,
       },
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
@@ -342,6 +378,45 @@ class OrderRemoteDatasource implements OrderDatasource {
     return response.data!;
   }
 
+  @override
+  Future<List<CustomerEntity>> searchCustomers({required String organizationId, String query = ''}) async {
+    final search = Uri.encodeQueryComponent(query.trim());
+    final response = await _client.get(
+      '/organizations/$organizationId/customers?page=1&pageSize=20${search.isEmpty ? '' : '&search=$search'}',
+      authenticated: true,
+      fromJson: (json) {
+        final reader = JsonReader(json as Map<String, dynamic>);
+        return reader.listOfMaps('items').map(_mapCustomer).where((c) => c.id.isNotEmpty).toList();
+      },
+    );
+
+    if (!response.success || response.data == null) {
+      throw response.message ?? response.errors.join(', ');
+    }
+
+    return response.data!;
+  }
+
+  CustomerEntity _mapCustomer(Map<String, dynamic> json) {
+    final reader = JsonReader(json);
+
+    return CustomerEntity(
+      id: reader.string('id'),
+      type: reader.string('type', fallback: 'Customer'),
+      transactionType: reader.string('transactionType', fallback: 'B2C'),
+      legalName: reader.string('legalName'),
+      tin: _optional(reader, 'tin'),
+      phone: _optional(reader, 'phone'),
+      email: _optional(reader, 'email'),
+      isWithholdingAgent: reader.boolean('isWithholdingAgent'),
+    );
+  }
+
+  String? _optional(JsonReader reader, String key) {
+    final value = reader.string(key);
+    return value.isEmpty ? null : value;
+  }
+
   OrderPaymentEntity _mapChapaInit(Map<String, dynamic> json, {String methodFallback = 'Chapa'}) {
     final reader = JsonReader(json);
 
@@ -354,6 +429,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       txRef: reader.string('txRef').isEmpty
           ? (reader.string('outTradeNo').isEmpty ? null : reader.string('outTradeNo'))
           : reader.string('txRef'),
+      ussdPushed: reader.boolean('ussdPushed'),
     );
   }
 
@@ -384,6 +460,8 @@ class OrderRemoteDatasource implements OrderDatasource {
       customerPhone: reader.string('customerPhone').isEmpty ? null : reader.string('customerPhone'),
       customerName: reader.string('customerName').isEmpty ? null : reader.string('customerName'),
       customerTin: reader.string('customerTin').isEmpty ? null : reader.string('customerTin'),
+      customerId: _optional(reader, 'customerId'),
+      customerEmail: _optional(reader, 'customerEmail'),
       lines: reader.listOfMaps('lines').map(_mapOrderLine).toList(),
       payments: reader.listOfMaps('payments').map(_mapPayment).toList(),
       tableNumber: reader.string('tableNumber').isEmpty ? null : reader.string('tableNumber'),
@@ -393,6 +471,14 @@ class OrderRemoteDatasource implements OrderDatasource {
           ? null
           : reader.string('assignedBranchMemberUserId'),
       createdAt: reader.dateTime('createdAt'),
+      // Amounts as the API calculates them (withholding, partial payments).
+      discountAmount: reader.number('discountAmount'),
+      withholdingAmount: reader.number('withholdingAmount'),
+      // Absent on API versions before partial payments: fall back to the app's own figures.
+      netPayableAmount: json.containsKey('netPayableAmount') ? reader.number('netPayableAmount') : null,
+      paidAmount: reader.number('paidAmount'),
+      remainingAmount: json.containsKey('remainingAmount') ? reader.number('remainingAmount') : null,
+      paymentMode: reader.string('paymentMode', fallback: 'CASH'),
     );
   }
 
@@ -425,6 +511,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       paidQuantity: reader.number('paidQuantity'),
       discount: reader.number('discount'),
       taxes: reader.listOfMaps('taxes').map(_mapLineTax).toList(),
+      taxAmount: reader.number('taxAmount'),
       imageUrl: reader.string('imageUrl').isEmpty ? null : reader.string('imageUrl'),
       stockOnHand: reader.number('stockOnHand', fallback: -1) < 0 ? null : reader.number('stockOnHand'),
       trackInventory: reader.boolean('trackInventory'),

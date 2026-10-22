@@ -41,9 +41,9 @@ class PaymentSuccessDialog {
         children: [
           Text(
             receiptProfile.titleLabel,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
           Text(
@@ -57,6 +57,12 @@ class PaymentSuccessDialog {
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
+          if (order.withholdingAmount > 0)
+            Text(
+              'Withholding ${CurrencyFormatter.format(order.withholdingAmount)} · paid ${CurrencyFormatter.format(order.netPayable)}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           const SizedBox(height: AppSizes.padding / 2),
           if (receiptProfile.showClientName && (order.customerName?.isNotEmpty ?? false))
             Text(
@@ -80,13 +86,13 @@ class PaymentSuccessDialog {
           Text(
             receiptProfile.footerNote,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSizes.padding),
           if (invoice != null) ...[
-            _InvoiceSection(invoice: invoice),
+            _InvoiceSection(invoice: invoice, phone: order.customerPhone, email: order.customerEmail),
           ] else ...[
             Text(
               MposConfig.mockMode
@@ -103,9 +109,11 @@ class PaymentSuccessDialog {
 }
 
 class _InvoiceSection extends StatefulWidget {
-  const _InvoiceSection({required this.invoice});
+  const _InvoiceSection({required this.invoice, this.phone, this.email});
 
   final FiscalInvoiceEntity invoice;
+  final String? phone;
+  final String? email;
 
   @override
   State<_InvoiceSection> createState() => _InvoiceSectionState();
@@ -113,6 +121,14 @@ class _InvoiceSection extends StatefulWidget {
 
 class _InvoiceSectionState extends State<_InvoiceSection> {
   late FiscalInvoiceEntity invoice = widget.invoice;
+
+  void _send(BuildContext context, String document) => showSendDocumentDialog(
+    context,
+    orderId: invoice.orderId,
+    document: document,
+    phone: widget.phone,
+    email: widget.email,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -145,22 +161,42 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
             ],
           ),
           const SizedBox(height: AppSizes.padding),
-          if (invoice.isSubmitted || invoice.isCancelled) ...[
+          if (invoice.isRegistered || invoice.isCancelled) ...[
             if (invoice.isCancelled)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSizes.padding / 2),
                 child: Text(
                   'This e-invoice has been cancelled with MoR.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.error, fontWeight: FontWeight.w600),
                 ),
               ),
+            _InvoiceRow(
+              label: 'Title',
+              value: invoice.isCreditSale ? 'Credit sales tax invoice' : 'Cash sales tax invoice',
+            ),
             _InvoiceRow(label: 'IRN', value: invoice.irn ?? '—'),
             _InvoiceRow(label: 'Document #', value: invoice.documentNumber ?? '—'),
+            if (invoice.invoiceDate != null)
+              _InvoiceRow(label: 'Date', value: _formatDate(invoice.invoiceDate!.toLocal())),
             _InvoiceRow(label: 'Type', value: invoice.transactionType ?? 'B2C'),
-            _InvoiceRow(label: 'Seller', value: MockFixtures.sellerLegalName),
+            _InvoiceRow(
+              label: 'Seller',
+              value: invoice.seller?.legalName ?? (MposConfig.mockMode ? MockFixtures.sellerLegalName : '—'),
+            ),
+            if (invoice.seller?.subTin != null) _InvoiceRow(label: 'Sub-TIN', value: invoice.seller!.subTin!),
+            if (invoice.seller?.vatNumber != null)
+              _InvoiceRow(
+                label: 'VAT No.',
+                value: invoice.seller!.vatRegistrationDate == null
+                    ? invoice.seller!.vatNumber!
+                    : '${invoice.seller!.vatNumber} (Reg. ${invoice.seller!.vatRegistrationDate})',
+              ),
+            if (invoice.incomeWithholdAmount > 0)
+              _InvoiceRow(label: 'Withheld 3%', value: CurrencyFormatter.format(invoice.incomeWithholdAmount)),
+            if (invoice.vatWithholdAmount > 0)
+              _InvoiceRow(label: 'VAT withheld', value: CurrencyFormatter.format(invoice.vatWithholdAmount)),
             if (invoice.signedQr != null) ...[
               const SizedBox(height: AppSizes.padding),
               Row(
@@ -216,14 +252,38 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => shareReceiptPdf(context, invoice.orderId),
-                      icon: const Icon(Icons.receipt_outlined, size: 18),
-                      label: const Text('Receipt PDF'),
+                      onPressed: () => _send(context, 'invoice'),
+                      icon: const Icon(Icons.send_outlined, size: 18),
+                      label: const Text('Send invoice'),
                     ),
                   ),
                 ],
               ),
-              if (invoice.isSubmitted)
+              // A cash sale paid in full is settled by the invoice itself; a receipt exists only
+              // once MoR registered one (credit sales and instalments).
+              if (invoice.salesReceiptRrn != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => shareReceiptPdf(context, invoice.orderId),
+                        icon: const Icon(Icons.receipt_outlined, size: 18),
+                        label: const Text('Receipt PDF'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _send(context, 'receipt'),
+                        icon: const Icon(Icons.send_outlined, size: 18),
+                        label: const Text('Send receipt'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (invoice.isRegistered)
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
@@ -261,7 +321,8 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSubmitted = status.toLowerCase() == 'submitted';
+    final normalized = status.toLowerCase();
+    final isSubmitted = normalized == 'registered' || normalized == 'completed' || normalized == 'pending';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -278,6 +339,11 @@ class _StatusChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatDate(DateTime value) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(value.day)}-${two(value.month)}-${value.year} ${two(value.hour)}:${two(value.minute)}';
 }
 
 class _InvoiceRow extends StatelessWidget {
