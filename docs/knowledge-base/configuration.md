@@ -22,7 +22,7 @@ This page collects the main runtime switches and setup assumptions visible in th
 
 Other config details:
 - API prefix is fixed as `/api/v1`
-- the default API URL points to `http://192.168.1.4:5150`
+- the default API URL points to the hosted API `https://posapi.kefta-ticket.com`
 - Supabase is treated as optional until the URL and anon key are both present
 
 ## Mock Mode

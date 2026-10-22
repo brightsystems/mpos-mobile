@@ -7,7 +7,12 @@ class MposConfig {
   /// Defaults to false — use the real API. Opt in with `--dart-define=MPOS_MOCK_MODE=true`.
   static const bool mockMode = bool.fromEnvironment('MPOS_MOCK_MODE', defaultValue: false);
 
-  static const String baseUrl = String.fromEnvironment('MPOS_API_URL', defaultValue: 'http://192.168.1.7:5150');
+  /// API server (the prefix below is appended). Defaults to the hosted API; point a dev build at a
+  /// local API with `--dart-define=MPOS_API_URL=http://<host>:5150`.
+  static const String baseUrl = String.fromEnvironment(
+    'MPOS_API_URL',
+    defaultValue: 'https://posapi.kefta-ticket.com',
+  );
   
   static const String apiPrefix = '/api/v1';
 
