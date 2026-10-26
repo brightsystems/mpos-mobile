@@ -33,7 +33,6 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
 
   final _systemNumber = TextEditingController();
   final _systemType = TextEditingController(text: 'POS');
-  final _baseUrl = TextEditingController();
   final _clientId = TextEditingController();
   final _clientSecret = TextEditingController();
   final _apiKey = TextEditingController();
@@ -50,7 +49,7 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
 
   @override
   void dispose() {
-    for (final c in [_systemNumber, _systemType, _baseUrl, _clientId, _clientSecret, _apiKey]) {
+    for (final c in [_systemNumber, _systemType, _clientId, _clientSecret, _apiKey]) {
       c.dispose();
     }
     super.dispose();
@@ -70,7 +69,6 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
         if (m != null) {
           _systemNumber.text = m.systemNumber;
           _systemType.text = m.systemType ?? 'POS';
-          _baseUrl.text = m.morBaseUrl ?? '';
           // Credentials are never returned by the API — only presence flags.
           _hasClientId = m.hasClientId || (m.morClientId?.isNotEmpty ?? false);
           _hasClientSecret = m.hasClientSecret;
@@ -111,7 +109,6 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
     final body = <String, dynamic>{
       'systemNumber': _systemNumber.text.trim(),
       if (_systemType.text.trim().isNotEmpty) 'systemType': _systemType.text.trim(),
-      if (_baseUrl.text.trim().isNotEmpty) 'morBaseUrl': _baseUrl.text.trim(),
       if (_clientId.text.trim().isNotEmpty) 'morClientId': _clientId.text.trim(),
       if (_clientSecret.text.trim().isNotEmpty) 'morClientSecret': _clientSecret.text.trim(),
       if (_apiKey.text.trim().isNotEmpty) 'morApiKey': _apiKey.text.trim(),
@@ -177,7 +174,11 @@ class _MorSettingsScreenState extends State<MorSettingsScreen> {
                   hintText: _hasApiKey ? '•••••• Saved — leave blank to keep' : null,
                 ),
                 const SizedBox(height: AppSizes.padding / 2),
-                AppTextField(controller: _baseUrl, labelText: 'MOR base URL (optional)'),
+                // The MoR address is set platform-wide; every register uses HTTPS with signed requests.
+                Text(
+                  "Transport: HTTPS, signed with the register's INSA certificate. The MoR address is set by the platform administrator.",
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: AppSizes.padding),
                 AppButton(text: 'Save settings', onTap: _save),
                 const SizedBox(height: AppSizes.padding),
@@ -233,7 +234,10 @@ class _CertificateStatusCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (emailedAt != null)
-                  Text('Request package emailed to contact person: $emailedAt', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'Request package emailed to contact person: $emailedAt',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 if (emailError != null)
                   Text(
                     'Email failed: $emailError',

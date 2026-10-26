@@ -197,7 +197,6 @@ class MorSettingsModel {
     this.morApiKey,
     required this.systemNumber,
     this.systemType,
-    this.morBaseUrl,
     this.isConfigured = false,
     this.hasClientId = false,
     this.hasClientSecret = false,
@@ -216,7 +215,6 @@ class MorSettingsModel {
       morApiKey: opt('morApiKey'),
       systemNumber: reader.string('systemNumber'),
       systemType: opt('systemType'),
-      morBaseUrl: opt('morBaseUrl'),
       isConfigured: reader.boolean('isConfigured'),
       hasClientId: reader.boolean('hasClientId'),
       hasClientSecret: reader.boolean('hasClientSecret'),
@@ -228,7 +226,6 @@ class MorSettingsModel {
   final String? morApiKey;
   final String systemNumber;
   final String? systemType;
-  final String? morBaseUrl;
   final bool isConfigured;
   final bool hasClientId;
   final bool hasClientSecret;
