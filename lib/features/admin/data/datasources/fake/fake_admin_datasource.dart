@@ -244,7 +244,6 @@ class FakeAdminDatasource implements AdminDatasource {
     _mor = MorSettingsModel(
       systemNumber: (body['systemNumber'] as String?) ?? '',
       systemType: body['systemType'] as String?,
-      morBaseUrl: body['morBaseUrl'] as String?,
       isConfigured: true,
       hasClientId: body['morClientId'] != null || (_mor?.hasClientId ?? false),
       hasClientSecret: body['morClientSecret'] != null || (_mor?.hasClientSecret ?? false),
