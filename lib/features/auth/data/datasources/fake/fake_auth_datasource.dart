@@ -47,6 +47,19 @@ class FakeAuthDatasource implements AuthDatasource {
     );
   }
 
+  /// Demo mode signs in without an SMS code, so these are never reached.
+  @override
+  Future<ApiResponse<AuthSessionEntity>> verifyLoginCode({
+    required String challengeId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  }) async => const ApiResponse(success: false, message: 'Not used in demo mode.');
+
+  @override
+  Future<ApiResponse<LoginCodeChallenge>> resendLoginCode({required String challengeId}) async =>
+      const ApiResponse(success: false, message: 'Not used in demo mode.');
+
   @override
   Future<ApiResponse<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,

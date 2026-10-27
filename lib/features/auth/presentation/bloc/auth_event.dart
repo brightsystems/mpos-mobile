@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:mpos_mobile/features/auth/domain/entities/membership_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
 
 sealed class AuthEvent extends Equatable {
@@ -42,6 +43,34 @@ class AuthOtpRequested extends AuthEvent {
 
   @override
   List<Object?> get props => [phone, reason];
+}
+
+/// Administrator sign-in, step 2: the SMS code sent after the password.
+class AuthLoginCodeSubmitted extends AuthEvent {
+  const AuthLoginCodeSubmitted({
+    required this.challengeId,
+    required this.code,
+    required this.deviceId,
+    this.deviceName,
+  });
+
+  final String challengeId;
+  final String code;
+  final String deviceId;
+  final String? deviceName;
+
+  @override
+  List<Object?> get props => [challengeId, code, deviceId, deviceName];
+}
+
+/// Sends a new sign-in code.
+class AuthLoginCodeResendRequested extends AuthEvent {
+  const AuthLoginCodeResendRequested(this.challenge);
+
+  final LoginCodeChallenge challenge;
+
+  @override
+  List<Object?> get props => [challenge];
 }
 
 /// The SMS code plus the new password; signs in on success.

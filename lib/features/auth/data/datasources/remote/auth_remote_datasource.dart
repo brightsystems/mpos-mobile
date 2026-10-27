@@ -37,10 +37,44 @@ class AuthRemoteDatasource implements AuthDatasource {
           return const PasswordLoginOutcome.passwordSetupRequired();
         }
 
+        if ((map['requiresOtp'] ?? false) == true) {
+          return PasswordLoginOutcome.codeRequired(_codeChallenge(map));
+        }
+
         return PasswordLoginOutcome.session(mapAuthTokens(map, deviceId: deviceId, loginMethod: LoginMethod.otp));
       },
     );
   }
+
+  @override
+  Future<ApiResponse<AuthSessionEntity>> verifyLoginCode({
+    required String challengeId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  }) {
+    return _client.post(
+      '/auth/password/login/otp',
+      body: {'challengeId': challengeId, 'code': code, 'deviceId': deviceId, 'deviceName': ?deviceName},
+      fromJson: (json) => mapAuthTokens(json as Map<String, dynamic>, deviceId: deviceId, loginMethod: LoginMethod.otp),
+    );
+  }
+
+  @override
+  Future<ApiResponse<LoginCodeChallenge>> resendLoginCode({required String challengeId}) {
+    return _client.post(
+      '/auth/password/login/otp/resend',
+      body: {'challengeId': challengeId},
+      fromJson: (json) => _codeChallenge(json as Map<String, dynamic>),
+    );
+  }
+
+  static LoginCodeChallenge _codeChallenge(Map<String, dynamic> map) => LoginCodeChallenge(
+    challengeId: map['otpChallengeId'] as String,
+    phoneHint: map['otpPhoneHint'] as String? ?? '',
+    expiresInSeconds: (map['otpExpiresInSeconds'] as num?)?.toInt() ?? 300,
+    devOtp: map['devOtp'] as String?,
+  );
 
   @override
   Future<ApiResponse<AuthSessionEntity>> setPasswordWithOtp({

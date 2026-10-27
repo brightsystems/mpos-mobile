@@ -14,6 +14,17 @@ abstract class AuthDatasource {
     String? deviceName,
   });
 
+  /// Administrator sign-in, step 2: the SMS code sent after the password.
+  Future<ApiResponse<AuthSessionEntity>> verifyLoginCode({
+    required String challengeId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  });
+
+  /// Sends a new sign-in code (throttled by the API).
+  Future<ApiResponse<LoginCodeChallenge>> resendLoginCode({required String challengeId});
+
   /// First or forgotten password: SMS code from [requestOtp] + new password, then signed in.
   Future<ApiResponse<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/core/device/mpos_device_id.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
@@ -34,6 +35,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
   /// Set while the user enters the SMS code and a new password.
   AuthOtpSent? _setPasswordStep;
+
+  /// Administrators: set while the user enters the SMS sign-in code.
+  LoginCodeChallenge? _codeStep;
 
   @override
   void initState() {
@@ -111,9 +115,31 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     );
   }
 
+  void _verifyCode() {
+    final step = _codeStep;
+    if (step == null || _deviceId == null) {
+      return;
+    }
+
+    if (_code.text.trim().length < 6) {
+      AppSnackBar.showError('Enter the 6-digit code sent to your phone.');
+      return;
+    }
+
+    context.read<AuthBloc>().add(
+      AuthLoginCodeSubmitted(
+        challengeId: step.challengeId,
+        code: _code.text.trim(),
+        deviceId: _deviceId!,
+        deviceName: _deviceName,
+      ),
+    );
+  }
+
   void _backToSignIn() {
     setState(() {
       _setPasswordStep = null;
+      _codeStep = null;
       _code.clear();
       _newPassword.clear();
       _confirmPassword.clear();
@@ -137,8 +163,26 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             AppSnackBar.show(state.devOtp != null ? 'Demo code: ${state.devOtp}' : 'Code sent to ${state.phone}.');
           }
 
+          if (state is AuthLoginCodeRequired) {
+            setState(() {
+              _codeStep = state.challenge;
+              _code.text = state.challenge.devOtp ?? '';
+            });
+            if (state.resent || state.challenge.devOtp != null) {
+              AppSnackBar.show(
+                state.challenge.devOtp != null
+                    ? 'Demo code: ${state.challenge.devOtp}'
+                    : 'New code sent to ${state.challenge.phoneHint}.',
+              );
+            }
+          }
+
           if (state is AuthUnauthenticated && state.message != null) {
             AppSnackBar.showError(state.message!);
+            // An expired sign-in code starts over from the password.
+            if (_codeStep != null && state.message!.contains('Sign in again')) {
+              _backToSignIn();
+            }
           }
         },
         builder: (context, state) {
@@ -148,7 +192,11 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
           return SafeArea(
             child: ListView(
               padding: const EdgeInsets.all(AppSizes.padding),
-              children: step == null ? _buildSignIn(context, busy) : _buildSetPassword(context, step, busy),
+              children: _codeStep != null
+                  ? _buildLoginCode(context, _codeStep!, busy)
+                  : step == null
+                  ? _buildSignIn(context, busy)
+                  : _buildSetPassword(context, step, busy),
             ),
           );
         },
@@ -199,6 +247,47 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       Text(
         'First time, or no password yet? Enter your phone and tap "Forgot password?" — we\'ll text you a code to set one.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+      ),
+    ];
+  }
+
+  List<Widget> _buildLoginCode(BuildContext context, LoginCodeChallenge step, bool busy) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return [
+      const SizedBox(height: AppSizes.padding),
+      Text(
+        'Enter your sign-in code',
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'For administrator accounts we also check your phone. Enter the 6-digit code we sent to ${step.phoneHint}.',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+      ),
+      const SizedBox(height: AppSizes.padding * 1.5),
+      AppTextField(
+        controller: _code,
+        labelText: 'Sign-in code',
+        hintText: '123456',
+        keyboardType: TextInputType.number,
+        maxLength: 6,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onEditingComplete: busy ? null : _verifyCode,
+      ),
+      const SizedBox(height: AppSizes.padding),
+      AppButton(text: busy ? 'Verifying…' : 'Verify & sign in', height: 52, enabled: !busy, onTap: _verifyCode),
+      const SizedBox(height: AppSizes.padding / 2),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(onPressed: busy ? null : _backToSignIn, child: const Text('Back to sign in')),
+          TextButton(
+            onPressed: busy ? null : () => context.read<AuthBloc>().add(AuthLoginCodeResendRequested(step)),
+            child: const Text('Resend code'),
+          ),
+        ],
       ),
     ];
   }

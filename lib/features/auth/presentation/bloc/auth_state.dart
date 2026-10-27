@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:mpos_mobile/features/auth/domain/entities/auth_session_entity.dart';
+import 'package:mpos_mobile/features/auth/domain/entities/password_login_outcome.dart';
 
 sealed class AuthState extends Equatable {
   const AuthState();
@@ -43,6 +44,19 @@ class AuthOtpSent extends AuthState {
 
   @override
   List<Object?> get props => [phone, requestId, expiresInSeconds, devOtp, reason];
+}
+
+/// Administrators: the password was right; the sign-in screen asks for the SMS code.
+class AuthLoginCodeRequired extends AuthState {
+  const AuthLoginCodeRequired(this.challenge, {this.resent = false});
+
+  final LoginCodeChallenge challenge;
+
+  /// A new code was just sent (Resend).
+  final bool resent;
+
+  @override
+  List<Object?> get props => [challenge, resent];
 }
 
 /// Signed in and has an organization -> route by role.

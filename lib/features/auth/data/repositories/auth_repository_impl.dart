@@ -60,6 +60,47 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<AuthSessionEntity>> verifyLoginCode({
+    required String challengeId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  }) async {
+    try {
+      final response = await _remoteDatasource.verifyLoginCode(
+        challengeId: challengeId,
+        code: code,
+        deviceId: deviceId,
+        deviceName: deviceName,
+      );
+
+      if (!response.success || response.data == null) {
+        return Result.failure(error: response.message ?? response.errors.join(', '));
+      }
+
+      await _sessionStorage.saveSession(response.data!);
+      return Result.success(data: response.data!);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
+  Future<Result<LoginCodeChallenge>> resendLoginCode({required String challengeId}) async {
+    try {
+      final response = await _remoteDatasource.resendLoginCode(challengeId: challengeId);
+
+      if (!response.success || response.data == null) {
+        return Result.failure(error: response.message ?? response.errors.join(', '));
+      }
+
+      return Result.success(data: response.data!);
+    } catch (e) {
+      return Result.failure(error: e);
+    }
+  }
+
+  @override
   Future<Result<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,
     required String code,
