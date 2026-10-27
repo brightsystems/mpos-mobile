@@ -29,6 +29,7 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^8.0.2
   printing: ^5.13.4
+  flutter_secure_storage: ^11.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
