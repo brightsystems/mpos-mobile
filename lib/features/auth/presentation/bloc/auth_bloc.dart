@@ -15,6 +15,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required RequestOtpUsecase requestOtpUsecase,
     required PasswordLoginUsecase passwordLoginUsecase,
     required SetPasswordWithOtpUsecase setPasswordWithOtpUsecase,
+    required VerifyLoginCodeUsecase verifyLoginCodeUsecase,
+    required ResendLoginCodeUsecase resendLoginCodeUsecase,
     required ShiftLoginUsecase shiftLoginUsecase,
     required SaveSessionUsecase saveSessionUsecase,
     required LogoutUsecase logoutUsecase,
@@ -22,6 +24,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
        _requestOtpUsecase = requestOtpUsecase,
        _passwordLoginUsecase = passwordLoginUsecase,
        _setPasswordWithOtpUsecase = setPasswordWithOtpUsecase,
+       _verifyLoginCodeUsecase = verifyLoginCodeUsecase,
+       _resendLoginCodeUsecase = resendLoginCodeUsecase,
        _shiftLoginUsecase = shiftLoginUsecase,
        _saveSessionUsecase = saveSessionUsecase,
        _logoutUsecase = logoutUsecase,
@@ -30,6 +34,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPasswordLoginRequested>(_onPasswordLoginRequested);
     on<AuthOtpRequested>(_onOtpRequested);
     on<AuthPasswordSetSubmitted>(_onPasswordSetSubmitted);
+    on<AuthLoginCodeSubmitted>(_onLoginCodeSubmitted);
+    on<AuthLoginCodeResendRequested>(_onLoginCodeResendRequested);
     on<AuthShiftQrScanned>(_onShiftQrScanned);
     on<AuthSessionUpdated>(_onSessionUpdated);
     on<AuthBusinessSelected>(_onBusinessSelected);
@@ -40,6 +46,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RequestOtpUsecase _requestOtpUsecase;
   final PasswordLoginUsecase _passwordLoginUsecase;
   final SetPasswordWithOtpUsecase _setPasswordWithOtpUsecase;
+  final VerifyLoginCodeUsecase _verifyLoginCodeUsecase;
+  final ResendLoginCodeUsecase _resendLoginCodeUsecase;
   final ShiftLoginUsecase _shiftLoginUsecase;
   final SaveSessionUsecase _saveSessionUsecase;
   final LogoutUsecase _logoutUsecase;
@@ -88,6 +96,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
+    // Administrators confirm with the SMS code sent to their phone.
+    final challenge = result.data!.codeChallenge;
+    if (challenge != null) {
+      emit(AuthLoginCodeRequired(challenge));
+      return;
+    }
+
     // No password yet: verify the phone by SMS code and set one.
     await _sendCode(normalized, PasswordSetupReason.firstTime, emit);
   }
@@ -120,6 +135,47 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
 
     emit(AuthUnauthenticated(message: result.error?.toString() ?? 'Could not send the code. Try again.'));
+  }
+
+  Future<void> _onLoginCodeSubmitted(AuthLoginCodeSubmitted event, Emitter<AuthState> emit) async {
+    final pending = state;
+    emit(const AuthLoading());
+    final result = await _verifyLoginCodeUsecase(
+      VerifyLoginCodeParams(
+        challengeId: event.challengeId,
+        code: event.code,
+        deviceId: event.deviceId,
+        deviceName: event.deviceName,
+      ),
+    );
+
+    if (result.isSuccess && result.data != null) {
+      await _emitForSession(result.data!, emit);
+      return;
+    }
+
+    final message = result.error?.toString() ?? 'Sign-in failed. Try again.';
+    emit(AuthUnauthenticated(message: message));
+
+    // A wrong code can be retried on the same challenge; an expired one starts over.
+    if (pending is AuthLoginCodeRequired && !message.contains('Sign in again')) {
+      emit(AuthLoginCodeRequired(pending.challenge));
+    }
+  }
+
+  Future<void> _onLoginCodeResendRequested(AuthLoginCodeResendRequested event, Emitter<AuthState> emit) async {
+    final result = await _resendLoginCodeUsecase(event.challenge.challengeId);
+
+    if (result.isSuccess && result.data != null) {
+      emit(AuthLoginCodeRequired(result.data!, resent: true));
+      return;
+    }
+
+    final message = result.error?.toString() ?? 'Could not send a new code.';
+    emit(AuthUnauthenticated(message: message));
+    if (!message.contains('Sign in again')) {
+      emit(AuthLoginCodeRequired(event.challenge));
+    }
   }
 
   Future<void> _onPasswordSetSubmitted(AuthPasswordSetSubmitted event, Emitter<AuthState> emit) async {

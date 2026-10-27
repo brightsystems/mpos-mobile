@@ -13,6 +13,15 @@ abstract class AuthRepository {
     String? deviceName,
   });
 
+  Future<Result<AuthSessionEntity>> verifyLoginCode({
+    required String challengeId,
+    required String code,
+    required String deviceId,
+    String? deviceName,
+  });
+
+  Future<Result<LoginCodeChallenge>> resendLoginCode({required String challengeId});
+
   Future<Result<AuthSessionEntity>> setPasswordWithOtp({
     required String requestId,
     required String code,

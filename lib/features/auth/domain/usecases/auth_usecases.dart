@@ -43,6 +43,44 @@ class PasswordLoginUsecase extends Usecase<Result<PasswordLoginOutcome>, Passwor
   }
 }
 
+class VerifyLoginCodeParams {
+  const VerifyLoginCodeParams({required this.challengeId, required this.code, required this.deviceId, this.deviceName});
+
+  final String challengeId;
+  final String code;
+  final String deviceId;
+  final String? deviceName;
+}
+
+/// Administrator sign-in, step 2: the SMS code sent after the password.
+class VerifyLoginCodeUsecase extends Usecase<Result<AuthSessionEntity>, VerifyLoginCodeParams> {
+  VerifyLoginCodeUsecase(this._repository);
+
+  final AuthRepository _repository;
+
+  @override
+  Future<Result<AuthSessionEntity>> call(VerifyLoginCodeParams params) {
+    return _repository.verifyLoginCode(
+      challengeId: params.challengeId,
+      code: params.code,
+      deviceId: params.deviceId,
+      deviceName: params.deviceName,
+    );
+  }
+}
+
+/// Sends a new sign-in code for a pending administrator sign-in.
+class ResendLoginCodeUsecase extends Usecase<Result<LoginCodeChallenge>, String> {
+  ResendLoginCodeUsecase(this._repository);
+
+  final AuthRepository _repository;
+
+  @override
+  Future<Result<LoginCodeChallenge>> call(String challengeId) {
+    return _repository.resendLoginCode(challengeId: challengeId);
+  }
+}
+
 class SetPasswordWithOtpParams {
   const SetPasswordWithOtpParams({
     required this.requestId,
