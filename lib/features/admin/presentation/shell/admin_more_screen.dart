@@ -56,6 +56,15 @@ class AdminMoreScreen extends StatelessWidget {
             title: l10n.branches,
             onTap: () => context.push('/admin/settings/branches'),
           ),
+          if (session.isOrgAdmin ||
+              session.hasPermission('inventory:view') ||
+              session.hasPermission('inventory:manage') ||
+              session.hasPermission('inventory:count'))
+            _MoreTile(
+              icon: Icons.inventory_2_outlined,
+              title: 'Inventory',
+              onTap: () => context.push('/admin/inventory'),
+            ),
           if (session.canManageSettings) ...[
             _MoreTile(
               icon: Icons.business_outlined,

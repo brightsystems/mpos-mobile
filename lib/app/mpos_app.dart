@@ -10,6 +10,7 @@ import 'package:mpos_mobile/core/locale/locale_cubit.dart';
 import 'package:mpos_mobile/core/theme/app_theme.dart';
 import 'package:mpos_mobile/core/theme/theme_cubit.dart';
 import 'package:mpos_mobile/core/theme/theme_state.dart';
+import 'package:mpos_mobile/features/inventory/presentation/inventory_screen.dart';
 import 'package:mpos_mobile/features/account/presentation/screens/account_screen.dart';
 import 'package:mpos_mobile/features/account/presentation/screens/dashboard_screen.dart';
 import 'package:mpos_mobile/features/admin/presentation/bank/bank_account_screen.dart';
@@ -90,6 +91,7 @@ class _MposAppShellState extends State<_MposAppShell> {
         GoRoute(path: '/admin/settings/payment-gateways', builder: (context, state) => const PaymentGatewaysScreen()),
         GoRoute(path: '/admin/settings/mor-settings', builder: (context, state) => const MorSettingsScreen()),
         GoRoute(path: '/admin/settings/bank-account', builder: (context, state) => const BankAccountScreen()),
+        GoRoute(path: '/admin/inventory', builder: (context, state) => const InventoryScreen()),
 
         // POS shell (waiters / cashiers).
         StatefulShellRoute.indexedStack(

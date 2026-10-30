@@ -248,10 +248,28 @@ class _PosMenuItemCard extends StatelessWidget {
             ),
             if (item.trackInventory)
               Text(
-                '${item.categoryName} · Stock ${item.stockDisplay}',
+                item.sellsWithoutStock
+                    ? '${item.categoryName} · Out of stock'
+                    : '${item.categoryName} · Stock ${item.stockDisplay}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  color: item.hasNoStock ? Theme.of(context).colorScheme.error : null,
+                ),
+              ),
+            if (item.isExpired || item.expiresSoon)
+              Text(
+                item.isExpired
+                    ? 'Expired stock on hand'
+                    : 'Expires ${MaterialLocalizations.of(context).formatShortDate(item.nearestExpiry!)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: item.isExpired ? Theme.of(context).colorScheme.error : Colors.orange.shade800,
+                ),
               ),
           ],
         ),
@@ -277,6 +295,7 @@ class _PosMenuItemCard extends StatelessWidget {
                 name: item.name,
                 imageUrl: item.imageUrl ?? '',
                 stock: item.stockDisplay,
+                limitToStock: !item.trackInventory || item.negativeStock == 'Block',
                 price: item.price.round(),
                 initialQuantity: quantity,
                 onChangedQuantity: (value) => quantity = value,
