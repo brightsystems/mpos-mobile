@@ -18,6 +18,7 @@ class OrderCard extends StatefulWidget {
     this.onTapCard,
     this.onTapRemove,
     required this.onChangedQuantity,
+    this.limitToStock = true,
   });
 
   final String name;
@@ -28,6 +29,9 @@ class OrderCard extends StatefulWidget {
   final VoidCallback? onTapCard;
   final VoidCallback? onTapRemove;
   final Function(int) onChangedQuantity;
+
+  /// False when the business lets sales take stock below zero.
+  final bool limitToStock;
 
   @override
   State<OrderCard> createState() => _OrderCardState();
@@ -146,7 +150,7 @@ class _OrderCardState extends State<OrderCard> {
                                     ),
                                   ),
                                   onTap: () {
-                                    if (quantity < widget.stock) {
+                                    if (!widget.limitToStock || quantity < widget.stock) {
                                       quantity += 1;
                                       setState(() {});
 

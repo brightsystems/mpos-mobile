@@ -18,6 +18,9 @@ class MenuItemEntity extends Equatable {
     this.isAvailable = true,
     this.sortOrder = 0,
     this.updatedAt,
+    this.nearestExpiry,
+    this.negativeStock = 'Block',
+    this.nearExpiryDays = 30,
   });
 
   final String id;
@@ -35,18 +38,43 @@ class MenuItemEntity extends Equatable {
   final int sortOrder;
   final DateTime? updatedAt;
 
+  /// Inventory module: earliest expiry of the stock on hand (null when not tracked).
+  final DateTime? nearestExpiry;
+
+  /// Inventory module: what a sale with too little stock does (Block, Warn, Allow).
+  final String negativeStock;
+
+  /// Inventory module: warn about stock expiring within this many days.
+  final int nearExpiryDays;
+
+  bool get hasNoStock => trackInventory && (stockOnHand ?? 0) <= 0;
+
+  /// Can't be sold: unavailable, or out of stock where the business refuses such sales.
   bool get isOutOfStock {
-    if (!trackInventory) {
-      return !isAvailable;
+    if (!isAvailable) {
+      return true;
     }
 
-    return (stockOnHand ?? 0) <= 0 || !isAvailable;
+    return hasNoStock && negativeStock == 'Block';
   }
 
+  /// Out of stock but the business lets it be sold (stock goes negative).
+  bool get sellsWithoutStock => hasNoStock && negativeStock != 'Block';
+
   int get stockDisplay => trackInventory ? (stockOnHand ?? 0).floor() : 999;
+
+  bool get isExpired => nearestExpiry != null && nearestExpiry!.isBefore(_today());
+
+  bool get expiresSoon =>
+      nearestExpiry != null && !isExpired && !nearestExpiry!.isAfter(_today().add(Duration(days: nearExpiryDays)));
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
   String get taxLabel => formatTaxLabel(taxes);
 
   @override
-  List<Object?> get props => [id, name, price, stockOnHand, isAvailable, updatedAt, taxes];
+  List<Object?> get props => [id, name, price, stockOnHand, isAvailable, updatedAt, taxes, nearestExpiry, negativeStock];
 }

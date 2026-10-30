@@ -26,11 +26,18 @@ class MenuRemoteDatasource implements MenuDatasource {
 
   List<MenuItemEntity> _mapMenuSync(Map<String, dynamic> json) {
     final reader = JsonReader(json);
+    // Inventory module rules for the whole business (absent when it isn't installed).
+    final negativeStock = reader.string('negativeStock', fallback: 'Block');
+    final nearExpiryDays = reader.integer('nearExpiryDays', fallback: 30);
 
-    return reader.listOfMaps('items').map(_mapMenuItem).where((item) => item.isAvailable).toList();
+    return reader
+        .listOfMaps('items')
+        .map((item) => _mapMenuItem(item, negativeStock: negativeStock, nearExpiryDays: nearExpiryDays))
+        .where((item) => item.isAvailable)
+        .toList();
   }
 
-  MenuItemEntity _mapMenuItem(Map<String, dynamic> json) {
+  MenuItemEntity _mapMenuItem(Map<String, dynamic> json, {String negativeStock = 'Block', int nearExpiryDays = 30}) {
     final reader = JsonReader(json);
 
     return MenuItemEntity(
@@ -44,10 +51,14 @@ class MenuRemoteDatasource implements MenuDatasource {
       imageUrl: reader.string('imageUrl').isEmpty ? null : reader.string('imageUrl'),
       taxes: reader.listOfMaps('taxes').map(_mapTax).toList(),
       trackInventory: reader.boolean('trackInventory'),
-      stockOnHand: reader.number('stockOnHand', fallback: -1) < 0 ? null : reader.number('stockOnHand'),
+      // Kept when negative: a business may sell below zero.
+      stockOnHand: json['stockOnHand'] == null ? null : reader.number('stockOnHand'),
       isAvailable: reader.boolean('isAvailable', fallback: true),
       sortOrder: reader.integer('sortOrder'),
       updatedAt: reader.dateTime('updatedAt'),
+      nearestExpiry: reader.dateTime('nearestExpiry'),
+      negativeStock: negativeStock.isEmpty ? 'Block' : negativeStock,
+      nearExpiryDays: nearExpiryDays,
     );
   }
 
