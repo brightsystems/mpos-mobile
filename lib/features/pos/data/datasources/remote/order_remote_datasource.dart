@@ -47,11 +47,19 @@ class OrderRemoteDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> createTicket({required String branchId, required String tableNumber}) async {
+  Future<OrderEntity> createTicket({
+    required String branchId,
+    required String tableNumber,
+    String? clientReference,
+  }) async {
     final response = await _client.post(
       '/branches/$branchId/orders',
       authenticated: true,
-      body: {'source': 'POS', 'tableNumber': tableNumber},
+      body: {
+        'source': 'POS',
+        'tableNumber': tableNumber,
+        if (clientReference != null && clientReference.isNotEmpty) 'clientReference': clientReference,
+      },
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -120,11 +128,16 @@ class OrderRemoteDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> updateOrderTableNumber({required String orderId, String? tableNumber}) async {
+  Future<OrderEntity> updateOrderTableNumber({
+    required String orderId,
+    String? tableNumber,
+    String? clientReference,
+  }) async {
     final response = await _client.put(
       '/orders/$orderId/table',
       authenticated: true,
-      body: {'tableNumber': tableNumber},
+      // The reference is changed only when sent ('' clears it).
+      body: {'tableNumber': tableNumber, 'clientReference': ?clientReference},
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
     );
 
@@ -324,6 +337,7 @@ class OrderRemoteDatasource implements OrderDatasource {
     String paymentMode = 'CASH',
     String? customerEmail,
     bool withholdTax = false,
+    String? clientReference,
   }) async {
     final response = await _client.post(
       '/orders/$orderId/submit',
@@ -336,6 +350,7 @@ class OrderRemoteDatasource implements OrderDatasource {
         // The buyer keeps the withholding: this payment is the balance less the withholding.
         if (withholdTax) 'withholdTax': true,
         if (customerId != null) 'customerId': customerId,
+        'clientReference': ?clientReference,
         'paymentMode': paymentMode,
       },
       fromJson: (json) => _mapOrder(json as Map<String, dynamic>),
@@ -479,6 +494,7 @@ class OrderRemoteDatasource implements OrderDatasource {
       paidAmount: reader.number('paidAmount'),
       remainingAmount: json.containsKey('remainingAmount') ? reader.number('remainingAmount') : null,
       paymentMode: reader.string('paymentMode', fallback: 'CASH'),
+      clientReference: _optional(reader, 'clientReference'),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
+import 'package:mpos_mobile/features/orders/presentation/screens/room_bills_view.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/dining_table_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
@@ -19,29 +20,72 @@ class OrdersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<PosBloc, PosState>(
       builder: (context, state) {
-        final tables = state.tables;
+        final tickets = _OpenTickets(state: state);
 
-        if (tables.isEmpty) {
-          return const Center(child: Text('No open tables. Start from the Sell tab.'));
+        // A hotel also keeps room bills (sales charged to a room) open until check-out.
+        if (!state.pos.chargeToRoom) {
+          return tickets;
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(AppSizes.padding),
-          itemCount: tables.length,
-          separatorBuilder: (_, _) => const SizedBox(height: AppSizes.padding / 2),
-          itemBuilder: (context, index) =>
-              _TableCard(table: tables[index], isFocused: state.focusedTableNumber == tables[index].tableNumber),
+        final roomLabel = state.clientReferenceLabel;
+        return DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              TabBar(
+                tabs: [
+                  Tab(text: 'Open ${state.vocabulary.ticket.toLowerCase()}s'),
+                  Tab(text: '$roomLabel bills'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    tickets,
+                    RoomBillsView(roomLabel: roomLabel),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 }
 
+class _OpenTickets extends StatelessWidget {
+  const _OpenTickets({required this.state});
+
+  final PosState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final tables = state.tables;
+
+    if (tables.isEmpty) {
+      return Center(child: Text('No open ${state.vocabulary.ticket.toLowerCase()}s. Start from the Sell tab.'));
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(AppSizes.padding),
+      itemCount: tables.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSizes.padding / 2),
+      itemBuilder: (context, index) => _TableCard(
+        table: tables[index],
+        isFocused: state.focusedTableNumber == tables[index].tableNumber,
+        label: state.servicePointChipLabel(tables[index].tableNumber),
+      ),
+    );
+  }
+}
+
 class _TableCard extends StatefulWidget {
-  const _TableCard({required this.table, required this.isFocused});
+  const _TableCard({required this.table, required this.isFocused, required this.label});
 
   final DiningTableEntity table;
   final bool isFocused;
+  final String label;
 
   @override
   State<_TableCard> createState() => _TableCardState();
@@ -74,7 +118,7 @@ class _TableCardState extends State<_TableCard> {
             context.read<PosBloc>().add(const PosTablesFocusCleared());
           }
         },
-        title: Text('Table ${table.tableNumber}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(widget.label, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text('${table.openTicketCount} tickets · ${CurrencyFormatter.format(table.unpaidTotal)} open'),
         childrenPadding: const EdgeInsets.fromLTRB(AppSizes.padding, 0, AppSizes.padding, AppSizes.padding),
         children: table.tickets.map((ticket) => _TicketCard(ticket: ticket)).toList(),
@@ -110,7 +154,11 @@ class _TicketCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ticket.ticketNumber ?? ticket.orderNumber,
+                      [
+                        ticket.ticketNumber ?? ticket.orderNumber,
+                        if ((ticket.customerName ?? '').isNotEmpty) ticket.customerName!,
+                        if ((ticket.clientReference ?? '').isNotEmpty) ticket.clientReference!,
+                      ].join(' · '),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(

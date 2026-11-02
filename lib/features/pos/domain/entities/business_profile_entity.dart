@@ -1,5 +1,9 @@
 import 'package:equatable/equatable.dart';
 
+import 'package:mpos_mobile/features/pos/domain/entities/business_type_pos.dart';
+
+export 'package:mpos_mobile/features/pos/domain/entities/business_type_pos.dart';
+
 class BusinessTypeVocabulary extends Equatable {
   const BusinessTypeVocabulary({
     required this.menu,
@@ -86,8 +90,7 @@ class BusinessTypeFeatures extends Equatable {
   final bool showAssignedStaffOnReceipt;
 
   factory BusinessTypeFeatures.fromJson(Map<String, dynamic> json) {
-    bool read(String a, String b, {bool fallback = false}) =>
-        (json[a] ?? json[b] ?? fallback) == true;
+    bool read(String a, String b, {bool fallback = false}) => (json[a] ?? json[b] ?? fallback) == true;
 
     return BusinessTypeFeatures(
       showServicePoints: read('showServicePoints', 'ShowServicePoints', fallback: true),
@@ -145,8 +148,7 @@ class BusinessTypeReceipt extends Equatable {
   final String footerNote;
 
   factory BusinessTypeReceipt.fromJson(Map<String, dynamic> json) {
-    bool readBool(String a, String b, {bool fallback = false}) =>
-        (json[a] ?? json[b] ?? fallback) == true;
+    bool readBool(String a, String b, {bool fallback = false}) => (json[a] ?? json[b] ?? fallback) == true;
 
     return BusinessTypeReceipt(
       titleLabel: (json['titleLabel'] ?? json['TitleLabel'] ?? 'Receipt').toString(),
@@ -155,8 +157,7 @@ class BusinessTypeReceipt extends Equatable {
       showServicePoint: readBool('showServicePoint', 'ShowServicePoint', fallback: true),
       showAssignedStaff: readBool('showAssignedStaff', 'ShowAssignedStaff', fallback: true),
       clientNameLabel: (json['clientNameLabel'] ?? json['ClientNameLabel'] ?? 'Customer').toString(),
-      clientReferenceLabel: (json['clientReferenceLabel'] ?? json['ClientReferenceLabel'] ?? 'Reference')
-          .toString(),
+      clientReferenceLabel: (json['clientReferenceLabel'] ?? json['ClientReferenceLabel'] ?? 'Reference').toString(),
       servicePointLabel: (json['servicePointLabel'] ?? json['ServicePointLabel'] ?? 'Table').toString(),
       assignedStaffLabel: (json['assignedStaffLabel'] ?? json['AssignedStaffLabel'] ?? 'Staff').toString(),
       footerNote: (json['footerNote'] ?? json['FooterNote'] ?? 'Thank you.').toString(),
@@ -201,6 +202,7 @@ class BusinessProfileEntity extends Equatable {
     required this.vocabulary,
     required this.features,
     required this.receipt,
+    this.pos = const BusinessTypePos(startWith: 'ServicePoint'),
   });
 
   final String code;
@@ -212,12 +214,13 @@ class BusinessProfileEntity extends Equatable {
   final BusinessTypeFeatures features;
   final BusinessTypeReceipt receipt;
 
+  /// How this business sells on the POS.
+  final BusinessTypePos pos;
+
   bool get showServicePoints => features.showServicePoints && floorMode != 'None';
 
   factory BusinessProfileEntity.fromJson(Map<String, dynamic> json) {
-    final profileJson = json['profile'] is Map
-        ? Map<String, dynamic>.from(json['profile'] as Map)
-        : json;
+    final profileJson = json['profile'] is Map ? Map<String, dynamic>.from(json['profile'] as Map) : json;
 
     return BusinessProfileEntity(
       code: (profileJson['code'] ?? profileJson['Code'] ?? 'Cafeteria').toString(),
@@ -225,8 +228,7 @@ class BusinessProfileEntity extends Equatable {
       description: (profileJson['description'] ?? profileJson['Description'] ?? '').toString(),
       floorMode: (profileJson['floorMode'] ?? profileJson['FloorMode'] ?? 'Tables').toString(),
       defaultWorkflowTemplate:
-          (profileJson['defaultWorkflowTemplate'] ?? profileJson['DefaultWorkflowTemplate'] ?? 'DirectPos')
-              .toString(),
+          (profileJson['defaultWorkflowTemplate'] ?? profileJson['DefaultWorkflowTemplate'] ?? 'DirectPos').toString(),
       vocabulary: BusinessTypeVocabulary.fromJson(
         Map<String, dynamic>.from((profileJson['vocabulary'] ?? profileJson['Vocabulary'] ?? {}) as Map),
       ),
@@ -235,6 +237,10 @@ class BusinessProfileEntity extends Equatable {
       ),
       receipt: BusinessTypeReceipt.fromJson(
         Map<String, dynamic>.from((profileJson['receipt'] ?? profileJson['Receipt'] ?? {}) as Map),
+      ),
+      pos: BusinessTypePos.fromJson(
+        profileJson['pos'] is Map ? Map<String, dynamic>.from(profileJson['pos'] as Map) : null,
+        (profileJson['code'] ?? profileJson['Code'] ?? 'Cafeteria').toString(),
       ),
     );
   }
@@ -260,5 +266,6 @@ class BusinessProfileEntity extends Equatable {
     vocabulary,
     features,
     receipt,
+    pos,
   ];
 }

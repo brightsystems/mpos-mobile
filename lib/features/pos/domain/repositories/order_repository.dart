@@ -7,7 +7,7 @@ import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings
 abstract class OrderRepository {
   Future<Result<List<OrderEntity>>> getOpenOrders();
 
-  Future<Result<OrderEntity>> createTicket({required String tableNumber});
+  Future<Result<OrderEntity>> createTicket({required String tableNumber, String? clientReference});
 
   Future<Result<OrderEntity>> addItemToTicket({
     required String orderId,
@@ -29,7 +29,11 @@ abstract class OrderRepository {
 
   Future<Result<OrderEntity>> removeTicketLine({required String orderId, required String lineId});
 
-  Future<Result<OrderEntity>> updateTicketTableNumber({required String orderId, String? tableNumber});
+  Future<Result<OrderEntity>> updateTicketTableNumber({
+    required String orderId,
+    String? tableNumber,
+    String? clientReference,
+  });
 
   Future<Result<OrderEntity>> settleTicket({
     required String orderId,
@@ -56,6 +60,7 @@ abstract class OrderRepository {
     String paymentMode = 'CASH',
     String? customerEmail,
     bool withholdTax = false,
+    String? clientReference,
   });
 
   Future<Result<OrderPaymentEntity>> pollPaymentStatus({

@@ -10,6 +10,7 @@ import 'package:mpos_mobile/features/auth/domain/rbac.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/business_profile_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/pos_client.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/order_repository.dart';
 import 'package:mpos_mobile/features/pos/domain/usecases/invoice_usecases.dart';
 import 'package:mpos_mobile/features/pos/domain/usecases/menu_usecases.dart';
@@ -62,6 +63,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<PosCheckoutDismissed>(_onCheckoutDismissed);
     on<PosOrderUpdated>(_onOrderUpdated);
     on<PosTablesFocusCleared>(_onTablesFocusCleared);
+    on<PosClientChanged>(_onClientChanged);
+    on<PosNewSaleStarted>(_onNewSaleStarted);
   }
 
   final SyncBranchMenuUsecase _syncBranchMenuUsecase;
@@ -126,6 +129,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     final workflowSettings = workflowSettingsResult.data;
     final businessProfileResult = await _orderRepository.getBusinessProfile();
     final businessProfile = businessProfileResult.data ?? BusinessProfileEntity.cafeteria;
+    final session = await _session();
+    final openIds = openOrders.map((o) => o.id).toSet();
 
     emit(
       state.copyWith(
@@ -139,9 +144,48 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         enableTelebirr: methods?.telebirr ?? false,
         workflowSettings: workflowSettings,
         businessProfile: businessProfile,
+        staffName: session?.userName,
+        // Forget the clients of tickets that are no longer open.
+        ticketClients: {
+          for (final entry in state.ticketClients.entries)
+            if (openIds.contains(entry.key)) entry.key: entry.value,
+        },
         clearError: true,
       ),
     );
+  }
+
+  Future<void> _onClientChanged(PosClientChanged event, Emitter<PosState> emit) async {
+    final client = event.client == null || event.client!.isEmpty ? null : event.client;
+    final ticket = state.activeTicket;
+
+    if (ticket == null || !ticket.isDraft) {
+      emit(state.copyWith(pendingClient: client, clearPendingClient: client == null, clearError: true));
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        ticketClients: {...state.ticketClients, ticket.id: client ?? const PosClient()},
+        clearPendingClient: true,
+        clearError: true,
+      ),
+    );
+
+    if ((client?.reference ?? '') != (ticket.clientReference ?? '')) {
+      final result = await _updateTicketTableNumberUsecase(
+        UpdateTicketTableNumberParams(
+          orderId: ticket.id,
+          tableNumber: ticket.tableNumber,
+          clientReference: client?.reference?.trim() ?? '',
+        ),
+      );
+      await _replaceOrderInState(emit, result);
+    }
+  }
+
+  void _onNewSaleStarted(PosNewSaleStarted event, Emitter<PosState> emit) {
+    emit(state.copyWith(clearActiveTicket: true, clearPendingClient: true, isPanelExpanded: false, clearError: true));
   }
 
   void _onSearchChanged(PosSearchChanged event, Emitter<PosState> emit) {
@@ -199,10 +243,18 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
   Future<void> _onItemAdded(PosItemAdded event, Emitter<PosState> emit) async {
     final tableNumber = _normalizeTableNumber(event.tableNumber);
-    var targetTicket = _findOpenTicketForTable(tableNumber);
+    if (event.client != null && state.activeTicket == null) {
+      emit(state.copyWith(pendingClient: event.client));
+    }
+    final pendingClient = state.pendingClient;
+    // A client picked for a new sale, or a new counter sale (list layout), gets a ticket of its own.
+    final startsNewTicket = state.activeTicket == null && (pendingClient != null || state.pos.isList);
+    var targetTicket = startsNewTicket ? null : _findOpenTicketForTable(tableNumber);
 
     if (targetTicket == null) {
-      final created = await _createTicketUsecase(CreateTicketParams(tableNumber));
+      final created = await _createTicketUsecase(
+        CreateTicketParams(tableNumber, clientReference: pendingClient?.reference?.trim()),
+      );
 
       if (!created.isSuccess || created.data == null) {
         emit(state.copyWith(errorMessage: created.error?.toString() ?? 'Failed to start a ticket.'));
@@ -214,6 +266,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         state.copyWith(
           openOrders: [...state.openOrders, targetTicket],
           activeTicketId: targetTicket.id,
+          ticketClients: pendingClient == null ? null : {...state.ticketClients, targetTicket.id: pendingClient},
+          clearPendingClient: true,
           clearError: true,
         ),
       );
@@ -226,6 +280,23 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     );
 
     await _replaceOrderInState(emit, result);
+
+    // A client picked for an existing ticket: keep it, and save its reference on the order.
+    final client = event.client;
+    final ticket = state.activeTicket;
+    if (client != null && ticket != null && result.isSuccess) {
+      emit(state.copyWith(ticketClients: {...state.ticketClients, ticket.id: client}));
+      if ((client.reference ?? '') != (ticket.clientReference ?? '')) {
+        final updated = await _updateTicketTableNumberUsecase(
+          UpdateTicketTableNumberParams(
+            orderId: ticket.id,
+            tableNumber: ticket.tableNumber,
+            clientReference: client.reference?.trim() ?? '',
+          ),
+        );
+        await _replaceOrderInState(emit, updated);
+      }
+    }
   }
 
   String _normalizeTableNumber(String? tableNumber) {
@@ -447,6 +518,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
             : order.id,
         focusedTableNumber: order.isClosed ? null : (order.tableNumber ?? 'Walk-in'),
         isPanelExpanded: false,
+        clearPendingClient: order.isClosed,
       ),
     );
 

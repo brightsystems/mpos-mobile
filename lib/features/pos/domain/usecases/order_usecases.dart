@@ -14,9 +14,10 @@ class LoadOpenOrdersUsecase extends Usecase<Result<List<OrderEntity>>, NoParam> 
 }
 
 class CreateTicketParams {
-  const CreateTicketParams(this.tableNumber);
+  const CreateTicketParams(this.tableNumber, {this.clientReference});
 
   final String tableNumber;
+  final String? clientReference;
 }
 
 class CreateTicketUsecase extends Usecase<Result<OrderEntity>, CreateTicketParams> {
@@ -26,7 +27,7 @@ class CreateTicketUsecase extends Usecase<Result<OrderEntity>, CreateTicketParam
 
   @override
   Future<Result<OrderEntity>> call(CreateTicketParams params) =>
-      _repository.createTicket(tableNumber: params.tableNumber);
+      _repository.createTicket(tableNumber: params.tableNumber, clientReference: params.clientReference);
 }
 
 class AddItemToTicketParams {
@@ -101,10 +102,11 @@ class RemoveTicketLineUsecase extends Usecase<Result<OrderEntity>, RemoveTicketL
 }
 
 class UpdateTicketTableNumberParams {
-  const UpdateTicketTableNumberParams({required this.orderId, this.tableNumber});
+  const UpdateTicketTableNumberParams({required this.orderId, this.tableNumber, this.clientReference});
 
   final String orderId;
   final String? tableNumber;
+  final String? clientReference;
 }
 
 class UpdateTicketTableNumberUsecase extends Usecase<Result<OrderEntity>, UpdateTicketTableNumberParams> {
@@ -113,8 +115,11 @@ class UpdateTicketTableNumberUsecase extends Usecase<Result<OrderEntity>, Update
   final OrderRepository _repository;
 
   @override
-  Future<Result<OrderEntity>> call(UpdateTicketTableNumberParams params) =>
-      _repository.updateTicketTableNumber(orderId: params.orderId, tableNumber: params.tableNumber);
+  Future<Result<OrderEntity>> call(UpdateTicketTableNumberParams params) => _repository.updateTicketTableNumber(
+    orderId: params.orderId,
+    tableNumber: params.tableNumber,
+    clientReference: params.clientReference,
+  );
 }
 
 class SettleTicketParams {

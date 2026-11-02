@@ -21,6 +21,8 @@ class MenuItemEntity extends Equatable {
     this.nearestExpiry,
     this.negativeStock = 'Block',
     this.nearExpiryDays = 30,
+    this.barcode,
+    this.isPrescriptionOnly = false,
   });
 
   final String id;
@@ -46,6 +48,18 @@ class MenuItemEntity extends Equatable {
 
   /// Inventory module: warn about stock expiring within this many days.
   final int nearExpiryDays;
+
+  /// Inventory module: the linked stock item's barcode (scanned at the POS).
+  final String? barcode;
+
+  /// Inventory module: sold only against a prescription (pharmacy).
+  final bool isPrescriptionOnly;
+
+  /// A scanned or typed code matches the barcode or the SKU (case-insensitive).
+  bool matchesCode(String code) {
+    final c = code.trim().toLowerCase();
+    return c.isNotEmpty && (barcode?.toLowerCase() == c || sku?.toLowerCase() == c);
+  }
 
   bool get hasNoStock => trackInventory && (stockOnHand ?? 0) <= 0;
 
@@ -76,5 +90,15 @@ class MenuItemEntity extends Equatable {
   String get taxLabel => formatTaxLabel(taxes);
 
   @override
-  List<Object?> get props => [id, name, price, stockOnHand, isAvailable, updatedAt, taxes, nearestExpiry, negativeStock];
+  List<Object?> get props => [
+    id,
+    name,
+    price,
+    stockOnHand,
+    isAvailable,
+    updatedAt,
+    taxes,
+    nearestExpiry,
+    negativeStock,
+  ];
 }

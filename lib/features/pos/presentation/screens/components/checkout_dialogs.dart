@@ -8,6 +8,8 @@ import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/auth/domain/rbac.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/pos_client.dart';
+import 'package:mpos_mobile/features/pos/domain/pos_rules.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/order_repository.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_event.dart';
@@ -45,23 +47,74 @@ bool _isValidEmail(String value) {
 
 void _showSubmitDialog(BuildContext context, OrderEntity order) {
   final bloc = context.read<PosBloc>();
-  final phoneController = TextEditingController(text: order.customerPhone ?? '');
-  final nameController = TextEditingController(text: order.customerName ?? '');
+  final pos = bloc.state.pos;
+  // The client picked for the sale (guest, patient, client) fills the buyer.
+  final client = bloc.state.ticketClients[order.id];
+  final room = client?.reference ?? order.clientReference;
+  final canChargeToRoom = PosRules.canChargeToRoom(pos, client ?? PosClient.fromOrder(order));
+  final phoneController = TextEditingController(text: order.customerPhone ?? client?.phone ?? '');
+  final nameController = TextEditingController(text: order.customerName ?? client?.name ?? '');
   final tinController = TextEditingController(text: order.customerTin ?? '');
   final emailController = TextEditingController(text: order.customerEmail ?? '');
   final searchController = TextEditingController();
   var paymentMode = order.isCreditSale ? 'CREDIT' : 'CASH';
   CustomerEntity? customer;
+  final pickedCustomerId = client?.customerId;
   var results = <CustomerEntity>[];
   var searching = false;
   var busy = false;
 
   AppDialog.show(
-    title: 'Checkout',
+    title: pos.allowCreditSale ? 'Invoice ${bloc.state.clientWord.toLowerCase()}' : 'Checkout',
     leftButtonText: 'Cancel',
     child: StatefulBuilder(
       builder: (dialogContext, setState) {
         final theme = Theme.of(dialogContext);
+
+        Future<void> submit({required String mode, bool chargeToRoom = false}) async {
+          setState(() => busy = true);
+
+          final result = await getIt<OrderRepository>().submitOrder(
+            orderId: order.id,
+            customerPhone: _blankToNull(phoneController.text),
+            customerName: _blankToNull(nameController.text),
+            customerTin: _blankToNull(tinController.text),
+            customerId: customer?.id ?? pickedCustomerId,
+            paymentMode: mode,
+            customerEmail: _blankToNull(emailController.text),
+            clientReference: room,
+          );
+
+          if (!dialogContext.mounted) return;
+
+          if (!result.isSuccess || result.data == null) {
+            setState(() => busy = false);
+            AppSnackBar.showError(result.error?.toString() ?? 'Submit failed.');
+            return;
+          }
+
+          final submitted = result.data!;
+          bloc.add(PosOrderUpdated(submitted));
+          Navigator.of(dialogContext).pop();
+
+          if (chargeToRoom) {
+            // On the room's bill until check-out: the next sale starts fresh.
+            bloc.add(const PosNewSaleStarted());
+            AppSnackBar.show('Charged to ${bloc.state.clientReferenceLabel.toLowerCase()} $room.');
+            return;
+          }
+
+          final session = await getIt<SessionStorage>().loadSession();
+          if (!(session?.canCollectPayment ?? false)) {
+            AppSnackBar.show('Order submitted for ${bloc.state.vocabulary.cashier.toLowerCase()} approval.');
+            return;
+          }
+
+          AppSnackBar.show('Order submitted. MoR invoice registration started.');
+          if (context.mounted) {
+            showPaymentDialog(context, submitted);
+          }
+        }
 
         Future<void> search() async {
           setState(() => searching = true);
@@ -161,7 +214,10 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: AppSizes.padding),
-            Text('Sale type', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              canChargeToRoom ? 'If paying now' : 'Sale type',
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: AppSizes.padding / 2),
             SegmentedButton<String>(
               segments: const [
@@ -174,45 +230,30 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
             const SizedBox(height: AppSizes.padding),
             _AmountRow(label: 'Total', amount: order.totalAmount, bold: true),
             const SizedBox(height: AppSizes.padding),
+            if (room != null && room.isNotEmpty && !canChargeToRoom)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSizes.padding / 2),
+                child: Text('${bloc.state.clientReferenceLabel}: $room', style: theme.textTheme.labelMedium),
+              ),
+            if (canChargeToRoom) ...[
+              AppButton(
+                text: busy ? 'Submitting…' : 'Charge to ${bloc.state.clientReferenceLabel.toLowerCase()} $room',
+                enabled: !busy && _isValidTin(tinController.text) && _isValidEmail(emailController.text),
+                onTap: () => submit(mode: 'CREDIT', chargeToRoom: true),
+              ),
+              const SizedBox(height: AppSizes.padding / 2),
+            ],
             AppButton(
-              text: busy ? 'Submitting…' : 'Submit & register invoice',
+              text: busy
+                  ? 'Submitting…'
+                  : canChargeToRoom
+                  ? 'Pay now instead'
+                  : 'Submit & register invoice',
+              buttonColor: canChargeToRoom ? theme.colorScheme.surface : null,
+              textColor: canChargeToRoom ? theme.colorScheme.primary : null,
+              borderColor: canChargeToRoom ? theme.colorScheme.primary : null,
               enabled: !busy && _isValidTin(tinController.text) && _isValidEmail(emailController.text),
-              onTap: () async {
-                setState(() => busy = true);
-
-                final result = await getIt<OrderRepository>().submitOrder(
-                  orderId: order.id,
-                  customerPhone: _blankToNull(phoneController.text),
-                  customerName: _blankToNull(nameController.text),
-                  customerTin: _blankToNull(tinController.text),
-                  customerId: customer?.id,
-                  paymentMode: paymentMode,
-                  customerEmail: _blankToNull(emailController.text),
-                );
-
-                if (!dialogContext.mounted) return;
-
-                if (!result.isSuccess || result.data == null) {
-                  setState(() => busy = false);
-                  AppSnackBar.showError(result.error?.toString() ?? 'Submit failed.');
-                  return;
-                }
-
-                final submitted = result.data!;
-                bloc.add(PosOrderUpdated(submitted));
-                Navigator.of(dialogContext).pop();
-
-                final session = await getIt<SessionStorage>().loadSession();
-                if (!(session?.canCollectPayment ?? false)) {
-                  AppSnackBar.show('Order submitted for cashier approval.');
-                  return;
-                }
-
-                AppSnackBar.show('Order submitted. MoR invoice registration started.');
-                if (context.mounted) {
-                  showPaymentDialog(context, submitted);
-                }
-              },
+              onTap: () => submit(mode: paymentMode),
             ),
           ],
         );
@@ -225,6 +266,7 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
 void showPaymentDialog(BuildContext context, OrderEntity order) {
   final bloc = context.read<PosBloc>();
   final methods = bloc.state.enabledPaymentMethods;
+  final quickCash = bloc.state.pos.quickCash;
 
   if (methods.isEmpty) {
     AppSnackBar.showError('No payment methods are enabled for this business.');
@@ -362,6 +404,21 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => setState(() {}),
               ),
+              if (quickCash && payNow > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final amount in PosRules.quickCashAmounts(planned))
+                        ActionChip(
+                          label: Text((amount - planned).abs() < 0.005 ? 'Exact' : CurrencyFormatter.format(amount)),
+                          onPressed: () => setState(() => receivedController.text = amount.toStringAsFixed(2)),
+                        ),
+                    ],
+                  ),
+                ),
               if (received >= payNow && payNow > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

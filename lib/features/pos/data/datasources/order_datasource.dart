@@ -8,7 +8,7 @@ abstract class OrderDatasource {
 
   Future<List<OrderEntity>> getOpenOrders({required String branchId});
 
-  Future<OrderEntity> createTicket({required String branchId, required String tableNumber});
+  Future<OrderEntity> createTicket({required String branchId, required String tableNumber, String? clientReference});
 
   Future<OrderEntity> addOrderLine({
     required String orderId,
@@ -26,7 +26,7 @@ abstract class OrderDatasource {
 
   Future<OrderEntity> removeOrderLine({required String orderId, required String lineId});
 
-  Future<OrderEntity> updateOrderTableNumber({required String orderId, String? tableNumber});
+  Future<OrderEntity> updateOrderTableNumber({required String orderId, String? tableNumber, String? clientReference});
 
   Future<OrderEntity> payCash({
     required String orderId,
@@ -78,6 +78,7 @@ abstract class OrderDatasource {
     String paymentMode = 'CASH',
     String? customerEmail,
     bool withholdTax = false,
+    String? clientReference,
   });
 
   Future<OrderWorkflowSettingsEntity> getEffectiveWorkflowSettings({required String branchId});
