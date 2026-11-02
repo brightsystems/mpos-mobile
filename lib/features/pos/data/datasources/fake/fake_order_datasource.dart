@@ -30,7 +30,11 @@ class FakeOrderDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> createTicket({required String branchId, required String tableNumber}) async {
+  Future<OrderEntity> createTicket({
+    required String branchId,
+    required String tableNumber,
+    String? clientReference,
+  }) async {
     await _simulateNetwork();
 
     final id = 'mock-order-${_orderSequence++}';
@@ -48,6 +52,7 @@ class FakeOrderDatasource implements OrderDatasource {
       tableNumber: tableNumber,
       ticketNumber: ticketNumber,
       createdAt: DateTime.now().toUtc(),
+      clientReference: clientReference,
     );
 
     _orders[id] = order;
@@ -142,10 +147,18 @@ class FakeOrderDatasource implements OrderDatasource {
   }
 
   @override
-  Future<OrderEntity> updateOrderTableNumber({required String orderId, String? tableNumber}) async {
+  Future<OrderEntity> updateOrderTableNumber({
+    required String orderId,
+    String? tableNumber,
+    String? clientReference,
+  }) async {
     await _simulateNetwork();
 
-    final order = _requireOrder(orderId);
+    var order = _requireOrder(orderId);
+    if (clientReference != null) {
+      order = order.copyWith(clientReference: clientReference);
+      _orders[orderId] = order;
+    }
     final normalizedTable = (tableNumber == null || tableNumber.trim().isEmpty) ? 'Walk-in' : tableNumber.trim();
 
     if ((order.tableNumber ?? 'Walk-in') == normalizedTable) {
@@ -346,6 +359,7 @@ class FakeOrderDatasource implements OrderDatasource {
     String paymentMode = 'CASH',
     String? customerEmail,
     bool withholdTax = false,
+    String? clientReference,
   }) async {
     await _simulateNetwork();
     final order = _requireOrder(orderId);
@@ -354,6 +368,7 @@ class FakeOrderDatasource implements OrderDatasource {
       customerPhone: customerPhone,
       customerName: customerName,
       customerTin: customerTin,
+      clientReference: clientReference,
     );
     _orders[orderId] = updated;
     return updated;

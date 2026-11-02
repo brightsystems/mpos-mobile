@@ -70,9 +70,9 @@ class PaymentSuccessDialog {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          if (receiptProfile.showClientReference && (order.customerPhone?.isNotEmpty ?? false))
+          if (receiptProfile.showClientReference && (order.clientReference?.isNotEmpty ?? false))
             Text(
-              '${receiptProfile.clientReferenceLabel}: ${order.customerPhone}',
+              '${receiptProfile.clientReferenceLabel}: ${order.clientReference}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

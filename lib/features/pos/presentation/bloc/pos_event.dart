@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/pos_client.dart';
 
 sealed class PosEvent extends Equatable {
   const PosEvent();
@@ -55,14 +56,17 @@ class PosActiveTicketTableChanged extends PosEvent {
 }
 
 class PosItemAdded extends PosEvent {
-  const PosItemAdded(this.item, this.quantity, {this.tableNumber});
+  const PosItemAdded(this.item, this.quantity, {this.tableNumber, this.client});
 
   final MenuItemEntity item;
   final int quantity;
   final String? tableNumber;
 
+  /// Who the sale is for, picked just before this item (client first, prescription).
+  final PosClient? client;
+
   @override
-  List<Object?> get props => [item, quantity, tableNumber];
+  List<Object?> get props => [item, quantity, tableNumber, client];
 }
 
 class PosLineQuantityChanged extends PosEvent {
@@ -172,4 +176,20 @@ class PosCheckoutDismissed extends PosEvent {
 
 class PosTablesFocusCleared extends PosEvent {
   const PosTablesFocusCleared();
+}
+
+/// Sets who the current sale is for (guest + room, patient, client, prescription). On a draft
+/// ticket the reference is saved on the order right away.
+class PosClientChanged extends PosEvent {
+  const PosClientChanged(this.client);
+
+  final PosClient? client;
+
+  @override
+  List<Object?> get props => [client];
+}
+
+/// Starts a new sale: no active ticket and no client, so the next item opens a new ticket.
+class PosNewSaleStarted extends PosEvent {
+  const PosNewSaleStarted();
 }

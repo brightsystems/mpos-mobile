@@ -6,6 +6,7 @@ import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.d
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_workflow_settings_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/entities/pos_client.dart';
 
 enum PosStatus { initial, loading, ready, checkingOut, success, failure }
 
@@ -27,6 +28,9 @@ class PosState extends Equatable {
     this.enableTelebirr = false,
     this.workflowSettings,
     this.businessProfile,
+    this.pendingClient,
+    this.ticketClients = const {},
+    this.staffName,
   });
 
   final PosStatus status;
@@ -46,8 +50,36 @@ class PosState extends Equatable {
   final OrderWorkflowSettingsEntity? workflowSettings;
   final BusinessProfileEntity? businessProfile;
 
-  BusinessTypeVocabulary get vocabulary =>
-      businessProfile?.vocabulary ?? BusinessTypeVocabulary.cafeteria;
+  /// The client chosen for the next sale (before its ticket exists).
+  final PosClient? pendingClient;
+
+  /// Client details kept per open ticket (name and phone are only sent to the API at submit).
+  final Map<String, PosClient> ticketClients;
+
+  /// The signed-in user (shown as the clinician / associate serving).
+  final String? staffName;
+
+  BusinessTypePos get pos => businessProfile?.pos ?? const BusinessTypePos(startWith: 'ServicePoint');
+
+  /// Who the current sale is for: the active ticket's client, else the one picked for the next sale.
+  PosClient? get activeClient {
+    final ticket = activeTicket;
+    if (ticket == null) {
+      return pendingClient;
+    }
+    final fromOrder = PosClient.fromOrder(ticket);
+    final kept = ticketClients[ticket.id];
+    final client = kept == null ? fromOrder : kept.mergedWith(fromOrder);
+    return client.isEmpty ? null : client;
+  }
+
+  /// "Patient", "Guest", "Client" or "Customer".
+  String get clientWord => pos.clientKind;
+
+  /// The reference's label: Room, Patient code, Prescription, Ref.
+  String get clientReferenceLabel => vocabulary.clientReference;
+
+  BusinessTypeVocabulary get vocabulary => businessProfile?.vocabulary ?? BusinessTypeVocabulary.cafeteria;
 
   String walkInLabel() => vocabulary.walkIn;
 
@@ -144,7 +176,12 @@ class PosState extends Equatable {
     bool? enableTelebirr,
     OrderWorkflowSettingsEntity? workflowSettings,
     BusinessProfileEntity? businessProfile,
+    PosClient? pendingClient,
+    Map<String, PosClient>? ticketClients,
+    String? staffName,
     bool clearError = false,
+    bool clearActiveTicket = false,
+    bool clearPendingClient = false,
     bool clearLastOrder = false,
     bool clearLastInvoice = false,
     bool clearFocusedTableNumber = false,
@@ -155,7 +192,7 @@ class PosState extends Equatable {
       filteredItems: filteredItems ?? this.filteredItems,
       searchQuery: searchQuery ?? this.searchQuery,
       openOrders: openOrders ?? this.openOrders,
-      activeTicketId: activeTicketId ?? this.activeTicketId,
+      activeTicketId: clearActiveTicket ? null : activeTicketId ?? this.activeTicketId,
       isPanelExpanded: isPanelExpanded ?? this.isPanelExpanded,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       lastOrder: clearLastOrder ? null : lastOrder ?? this.lastOrder,
@@ -166,6 +203,9 @@ class PosState extends Equatable {
       enableTelebirr: enableTelebirr ?? this.enableTelebirr,
       workflowSettings: workflowSettings ?? this.workflowSettings,
       businessProfile: businessProfile ?? this.businessProfile,
+      pendingClient: clearPendingClient ? null : pendingClient ?? this.pendingClient,
+      ticketClients: ticketClients ?? this.ticketClients,
+      staffName: staffName ?? this.staffName,
     );
   }
 
@@ -187,5 +227,8 @@ class PosState extends Equatable {
     enableTelebirr,
     workflowSettings,
     businessProfile,
+    pendingClient,
+    ticketClients,
+    staffName,
   ];
 }

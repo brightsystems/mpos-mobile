@@ -57,6 +57,8 @@ class MenuRemoteDatasource implements MenuDatasource {
       sortOrder: reader.integer('sortOrder'),
       updatedAt: reader.dateTime('updatedAt'),
       nearestExpiry: reader.dateTime('nearestExpiry'),
+      barcode: reader.string('barcode').isEmpty ? null : reader.string('barcode'),
+      isPrescriptionOnly: reader.boolean('isPrescriptionOnly'),
       negativeStock: negativeStock.isEmpty ? 'Block' : negativeStock,
       nearExpiryDays: nearExpiryDays,
     );

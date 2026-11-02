@@ -7,12 +7,15 @@ import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
+import 'package:mpos_mobile/features/pos/domain/pos_rules.dart';
+import 'package:mpos_mobile/features/inventory/presentation/barcode_scan_screen.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_event.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_state.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/shift_gate.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/checkout_dialogs.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/payment_success_dialog.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/sale_client_sheets.dart';
 import 'package:mpos_mobile/shared/widgets/app_button.dart';
 import 'package:mpos_mobile/shared/widgets/app_dialog.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
@@ -144,6 +147,7 @@ class _PosMenuBody extends StatelessWidget {
       builder: (context, state) {
         final items = state.filteredItems;
         final isLoading = state.status == PosStatus.loading && state.menuItems.isEmpty;
+        final pos = state.pos;
 
         return RefreshIndicator(
           onRefresh: onRefresh,
@@ -159,16 +163,39 @@ class _PosMenuBody extends StatelessWidget {
                 titleSpacing: 0,
                 title: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSizes.padding),
-                  child: AppTextField(
-                    controller: searchController,
-                    hintText: 'Search menu...',
-                    type: AppTextFieldType.search,
-                    textInputAction: TextInputAction.search,
-                    onChanged: (value) => context.read<PosBloc>().add(PosSearchChanged(value)),
-                    onTapClearButton: () => context.read<PosBloc>().add(const PosSearchChanged('')),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: searchController,
+                          hintText: pos.isList
+                              ? 'Scan or search ${state.vocabulary.product.toLowerCase()}...'
+                              : 'Search menu...',
+                          type: AppTextFieldType.search,
+                          autofocus: pos.scanFirst,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) => context.read<PosBloc>().add(PosSearchChanged(value)),
+                          onTapClearButton: () => context.read<PosBloc>().add(const PosSearchChanged('')),
+                          // A barcode scanner acting as a keyboard ends with Enter: add the match.
+                          onEditingComplete: () => _addByCode(context, searchController.text, fromSearch: true),
+                        ),
+                      ),
+                      if (pos.isList || pos.scanFirst)
+                        IconButton(
+                          tooltip: 'Scan barcode',
+                          icon: const Icon(Icons.qr_code_scanner),
+                          onPressed: () async {
+                            final code = await BarcodeScanScreen.scan(context);
+                            if (code != null && context.mounted) {
+                              _addByCode(context, code);
+                            }
+                          },
+                        ),
+                    ],
                   ),
                 ),
               ),
+              if (_showsClientBar(state)) SliverToBoxAdapter(child: _SaleClientBar(state: state)),
               if (isLoading)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -186,6 +213,15 @@ class _PosMenuBody extends StatelessWidget {
                       buttonText: 'Refresh',
                       onTapButton: () => context.read<PosBloc>().add(const PosRefreshRequested()),
                     ),
+                  ),
+                )
+              else if (pos.isList)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(AppSizes.padding, 2, AppSizes.padding, AppSizes.padding),
+                  sliver: SliverList.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) => _PosMenuItemRow(item: items[index]),
                   ),
                 )
               else
@@ -207,6 +243,167 @@ class _PosMenuBody extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _addByCode(BuildContext context, String code, {bool fromSearch = false}) {
+    final bloc = context.read<PosBloc>();
+    final item = PosRules.findByCode(bloc.state.menuItems, code);
+    if (item == null) {
+      if (!fromSearch) {
+        AppSnackBar.show('No ${bloc.state.vocabulary.product.toLowerCase()} with code ${code.trim()}.');
+      }
+      return;
+    }
+
+    searchController.clear();
+    bloc.add(const PosSearchChanged(''));
+    addItemToSale(context, item);
+  }
+}
+
+/// List and service-point businesses show who the sale is for above the products.
+bool _showsClientBar(PosState state) =>
+    state.pos.isList || state.pos.startsWithClient || state.pos.chargeToRoom || state.pos.askPrescriptionForRx;
+
+/// Who the current sale is for (patient, client, guest + room), with a "New sale" button.
+class _SaleClientBar extends StatelessWidget {
+  const _SaleClientBar({required this.state});
+
+  final PosState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final client = state.activeClient;
+    final pos = state.pos;
+    final word = state.clientWord;
+    final label = client == null || client.label().isEmpty
+        ? (pos.chargeToRoom
+              ? 'Walk-in (no room)'
+              : pos.clientRequired
+              ? 'No ${word.toLowerCase()} yet'
+              : 'Walk-in ${word.toLowerCase()}')
+        : client.label();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSizes.padding, 0, AppSizes.padding, AppSizes.padding / 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: ActionChip(
+              avatar: Icon(
+                pos.chargeToRoom
+                    ? Icons.hotel_outlined
+                    : pos.clientKind == 'Patient'
+                    ? Icons.personal_injury_outlined
+                    : Icons.person_outline,
+                size: 18,
+              ),
+              label: Text(pos.chargeToRoom ? 'Guest: $label' : '$word: $label', overflow: TextOverflow.ellipsis),
+              onPressed: () => showClientSheet(context, requireName: pos.clientRequired),
+            ),
+          ),
+          if (state.activeTicket != null) ...[
+            const SizedBox(width: AppSizes.padding / 2),
+            TextButton.icon(
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(pos.startsWithClient ? 'New ${word.toLowerCase()}' : 'New sale'),
+              style: TextButton.styleFrom(foregroundColor: theme.colorScheme.primary),
+              onPressed: () {
+                context.read<PosBloc>().add(const PosNewSaleStarted());
+                if (pos.startsWithClient) {
+                  showClientSheet(context, requireName: pos.clientRequired, fresh: true);
+                }
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact product row: a tap adds one (quantities are changed in the cart).
+class _PosMenuItemRow extends StatelessWidget {
+  const _PosMenuItemRow({required this.item});
+
+  final MenuItemEntity item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall?.copyWith(fontSize: 11);
+    final details = [
+      item.categoryName,
+      if (item.trackInventory)
+        item.sellsWithoutStock || item.hasNoStock ? 'Out of stock' : 'Stock ${item.stockDisplay}',
+      if ((item.barcode ?? item.sku ?? '').isNotEmpty) item.barcode ?? item.sku!,
+    ].join(' · ');
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      enabled: !item.isOutOfStock,
+      onTap: () => addItemToSale(context, item),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          if (item.isPrescriptionOnly) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Rx',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            details,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: small?.copyWith(color: item.hasNoStock ? theme.colorScheme.error : null),
+          ),
+          if (item.isExpired || item.expiresSoon)
+            Text(
+              item.isExpired
+                  ? 'Expired stock on hand'
+                  : 'Expires ${MaterialLocalizations.of(context).formatShortDate(item.nearestExpiry!)}',
+              style: small?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: item.isExpired ? theme.colorScheme.error : Colors.orange.shade800,
+              ),
+            ),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(CurrencyFormatter.format(item.price), style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 4),
+          Icon(Icons.add_circle_outline, color: item.isOutOfStock ? theme.disabledColor : theme.colorScheme.primary),
+        ],
+      ),
     );
   }
 }
@@ -416,6 +613,18 @@ class _PosCartHeader extends StatelessWidget {
                               : '${state.cartLines.length} items · ${CurrencyFormatter.format(state.cartTotal)}',
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
+                        if (activeTicket != null && (state.activeClient?.label().isNotEmpty ?? false))
+                          Text(
+                            '${state.pos.chargeToRoom ? 'Guest' : state.clientWord}: ${state.activeClient!.label()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        if (state.pos.showAssignedStaff && (state.staffName ?? '').isNotEmpty)
+                          Text(
+                            '${state.vocabulary.staffAssociate}: ${state.staffName}',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
                       ],
                     ),
                   ),

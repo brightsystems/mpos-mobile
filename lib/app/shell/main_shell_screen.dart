@@ -48,14 +48,7 @@ class MainShellScreen extends StatelessWidget {
               items: [
                 BottomNavigationBarItem(icon: const Icon(Icons.point_of_sale_outlined), label: l10n.navSell),
                 BottomNavigationBarItem(icon: const Icon(Icons.list_alt_outlined), label: menuLabel),
-                BottomNavigationBarItem(
-                  icon: Icon(
-                    state.businessProfile?.showServicePoints ?? true
-                        ? Icons.table_restaurant_outlined
-                        : Icons.receipt_long_outlined,
-                  ),
-                  label: openOrdersLabel,
-                ),
+                BottomNavigationBarItem(icon: Icon(_openOrdersIcon(state)), label: openOrdersLabel),
                 BottomNavigationBarItem(icon: const Icon(Icons.account_circle_outlined), label: l10n.navAccount),
               ],
             );
@@ -64,4 +57,20 @@ class MainShellScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Tables, rooms (hotel), stations (clinic) or open sales (counters).
+IconData _openOrdersIcon(PosState state) {
+  final profile = state.businessProfile;
+  if (profile == null || !profile.showServicePoints) {
+    return Icons.receipt_long_outlined;
+  }
+  if (profile.pos.chargeToRoom) {
+    return Icons.hotel_outlined;
+  }
+  return switch (profile.floorMode) {
+    'Stations' => Icons.meeting_room_outlined,
+    'Counters' => Icons.point_of_sale_outlined,
+    _ => Icons.table_restaurant_outlined,
+  };
 }

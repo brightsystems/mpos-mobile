@@ -159,6 +159,7 @@ class OrderEntity extends Equatable {
     this.paidAmount = 0,
     this.remainingAmount,
     this.paymentMode = 'CASH',
+    this.clientReference,
   });
 
   final String id;
@@ -201,6 +202,9 @@ class OrderEntity extends Equatable {
   /// CASH or CREDIT sale, chosen at submit.
   final String paymentMode;
 
+  /// Who or what the sale is for: room (hotel), patient code (clinic), prescription number (pharmacy).
+  final String? clientReference;
+
   List<OrderLineEntity> get unpaidLines => lines.where((line) => !line.isPaid).toList();
 
   double get remainingSubtotal => unpaidLines.fold<double>(0, (sum, line) => sum + line.remainingLineTotal);
@@ -242,6 +246,7 @@ class OrderEntity extends Equatable {
     String? source,
     String? assignedBranchMemberUserId,
     DateTime? createdAt,
+    String? clientReference,
   }) {
     return OrderEntity(
       id: id,
@@ -269,6 +274,7 @@ class OrderEntity extends Equatable {
       paidAmount: paidAmount,
       remainingAmount: remainingAmount,
       paymentMode: paymentMode,
+      clientReference: clientReference ?? this.clientReference,
     );
   }
 

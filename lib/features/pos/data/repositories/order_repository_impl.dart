@@ -33,7 +33,7 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<Result<OrderEntity>> createTicket({required String tableNumber}) async {
+  Future<Result<OrderEntity>> createTicket({required String tableNumber, String? clientReference}) async {
     try {
       final session = await _sessionStorage.loadSession();
 
@@ -41,7 +41,11 @@ class OrderRepositoryImpl implements OrderRepository {
         return Result.failure(error: 'Not authenticated.');
       }
 
-      final order = await _remoteDatasource.createTicket(branchId: session.branchId, tableNumber: tableNumber);
+      final order = await _remoteDatasource.createTicket(
+        branchId: session.branchId,
+        tableNumber: tableNumber,
+        clientReference: clientReference,
+      );
 
       return Result.success(data: order);
     } catch (e) {
@@ -129,9 +133,17 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<Result<OrderEntity>> updateTicketTableNumber({required String orderId, String? tableNumber}) async {
+  Future<Result<OrderEntity>> updateTicketTableNumber({
+    required String orderId,
+    String? tableNumber,
+    String? clientReference,
+  }) async {
     try {
-      final order = await _remoteDatasource.updateOrderTableNumber(orderId: orderId, tableNumber: tableNumber);
+      final order = await _remoteDatasource.updateOrderTableNumber(
+        orderId: orderId,
+        tableNumber: tableNumber,
+        clientReference: clientReference,
+      );
 
       return Result.success(data: order);
     } catch (e) {
@@ -229,6 +241,7 @@ class OrderRepositoryImpl implements OrderRepository {
     String paymentMode = 'CASH',
     String? customerEmail,
     bool withholdTax = false,
+    String? clientReference,
   }) async {
     try {
       final order = await _remoteDatasource.submitOrder(
@@ -240,6 +253,7 @@ class OrderRepositoryImpl implements OrderRepository {
         paymentMode: paymentMode,
         customerEmail: customerEmail,
         withholdTax: withholdTax,
+        clientReference: clientReference,
       );
       return Result.success(data: order);
     } catch (e) {
