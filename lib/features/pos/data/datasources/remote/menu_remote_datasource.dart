@@ -59,6 +59,7 @@ class MenuRemoteDatasource implements MenuDatasource {
       nearestExpiry: reader.dateTime('nearestExpiry'),
       barcode: reader.string('barcode').isEmpty ? null : reader.string('barcode'),
       isPrescriptionOnly: reader.boolean('isPrescriptionOnly'),
+      natureOfSupply: reader.string('natureOfSupply').isEmpty ? null : reader.string('natureOfSupply'),
       negativeStock: negativeStock.isEmpty ? 'Block' : negativeStock,
       nearExpiryDays: nearExpiryDays,
     );
