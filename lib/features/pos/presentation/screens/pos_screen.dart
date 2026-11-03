@@ -475,6 +475,9 @@ class _PosMenuItemCard extends StatelessWidget {
   }
 
   void _showAddDialog(BuildContext context, MenuItemEntity item) {
+    if (!fitsCurrentSale(context, item)) {
+      return;
+    }
     final bloc = context.read<PosBloc>();
     final activeTable = bloc.state.activeTableNumber;
     final isWalkIn = activeTable == null || activeTable == 'Walk-in';

@@ -25,6 +25,17 @@ abstract final class PosRules {
   static bool canChargeToRoom(BusinessTypePos pos, PosClient? client) =>
       pos.chargeToRoom && (client?.hasReference ?? false);
 
+  /// Goods and services never share an order: the error for adding [item] to a ticket holding
+  /// [onTicket], or null when it fits.
+  static String? supplyMixError(MenuItemEntity item, Iterable<MenuItemEntity> onTicket) {
+    final clash = onTicket.any((other) => other.isService != item.isService);
+    if (!clash) {
+      return null;
+    }
+    return '${item.name} is ${item.isService ? 'a service' : 'goods'}, but this order already has '
+        '${item.isService ? 'goods' : 'services'}. Start a new sale for it.';
+  }
+
   /// Quick cash buttons: the exact amount, then the next round 50, 100, 500 and 1000 above it.
   static List<double> quickCashAmounts(double due) {
     if (due <= 0) {

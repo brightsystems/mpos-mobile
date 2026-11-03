@@ -278,14 +278,17 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
   final nameController = TextEditingController(text: order.customerName ?? '');
   final tinController = TextEditingController(text: order.customerTin ?? '');
   final emailController = TextEditingController(text: order.customerEmail ?? '');
-  final payNowController = TextEditingController(text: remaining.toStringAsFixed(2));
-  final receivedController = TextEditingController(text: remaining.toStringAsFixed(2));
+
   var paymentMethod = methods.first.value;
-  // Withholding the buyer may still keep (none once kept). By default the buyer pays the full
-  // amount (FULL receipt); a withholding agent may choose to withhold (PARTIAL receipt).
+  // Withholding the buyer may still keep (none once kept).
   final alreadyKept = (order.totalAmount - order.netPayable).clamp(0, double.infinity);
   final withholdingAvailable = (order.withholdingAmount - alreadyKept).clamp(0, double.infinity).toDouble();
-  var buyerWithholds = false;
+  // A withholding agent withholds by default (PARTIAL receipt); the cashier unchecks it when the
+  // buyer pays in full. Orders without withholding are unaffected.
+  var buyerWithholds = withholdingAvailable > 0;
+  final initialAmount = (buyerWithholds ? remaining - withholdingAvailable : remaining).toStringAsFixed(2);
+  final payNowController = TextEditingController(text: initialAmount);
+  final receivedController = TextEditingController(text: initialAmount);
 
   AppDialog.show(
     title: 'Payment',
@@ -446,7 +449,7 @@ void showPaymentDialog(BuildContext context, OrderEntity order) {
                     customerEmail: _blankToNull(emailController.text),
                     receivedAmount: isCash ? received : null,
                     amount: isPartial ? payNow : null,
-                    withholdTax: buyerWithholds,
+                    withholdTax: buyerWithholds && withholdingAvailable > 0,
                   ),
                 );
                 bloc.add(const PosCartCleared());

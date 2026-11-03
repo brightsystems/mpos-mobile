@@ -23,6 +23,7 @@ class MenuItemEntity extends Equatable {
     this.nearExpiryDays = 30,
     this.barcode,
     this.isPrescriptionOnly = false,
+    this.natureOfSupply,
   });
 
   final String id;
@@ -54,6 +55,11 @@ class MenuItemEntity extends Equatable {
 
   /// Inventory module: sold only against a prescription (pharmacy).
   final bool isPrescriptionOnly;
+
+  /// MoR nature of supply: goods, or a service ("Service"/"Services").
+  final String? natureOfSupply;
+
+  bool get isService => const ['service', 'services'].contains((natureOfSupply ?? '').trim().toLowerCase());
 
   /// A scanned or typed code matches the barcode or the SKU (case-insensitive).
   bool matchesCode(String code) {

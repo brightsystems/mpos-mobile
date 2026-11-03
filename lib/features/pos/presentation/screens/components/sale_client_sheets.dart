@@ -29,6 +29,10 @@ Future<void> addItemToSale(BuildContext context, MenuItemEntity item, {int quant
     return;
   }
 
+  if (!fitsCurrentSale(context, item)) {
+    return;
+  }
+
   PosClient? client;
   if (PosRules.needsClient(state.pos, state.activeClient)) {
     client = await showClientSheet(context, requireName: true, apply: false);
@@ -46,6 +50,25 @@ Future<void> addItemToSale(BuildContext context, MenuItemEntity item, {int quant
   }
 
   bloc.add(PosItemAdded(item, quantity, tableNumber: tableNumber ?? bloc.state.activeTableNumber, client: client));
+}
+
+/// Goods and services go on separate orders: false (with a message) when [item] would mix them
+/// on the active ticket.
+bool fitsCurrentSale(BuildContext context, MenuItemEntity item) {
+  final state = context.read<PosBloc>().state;
+  final ticket = state.activeTicket;
+  if (ticket == null) {
+    return true;
+  }
+  final onTicket = ticket.lines
+      .map((line) => state.menuItems.where((m) => m.id == line.menuItemId).firstOrNull)
+      .whereType<MenuItemEntity>();
+  final mixError = PosRules.supplyMixError(item, onTicket);
+  if (mixError != null) {
+    AppSnackBar.show(mixError);
+    return false;
+  }
+  return true;
 }
 
 /// Picks who the sale is for: a saved customer, or a name, phone and the business's reference
