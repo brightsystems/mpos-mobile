@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:mpos_mobile/app/di/injection.dart';
+import 'package:mpos_mobile/core/network/mpos_api_client.dart';
+import 'package:mpos_mobile/core/storage/session_storage.dart';
+import 'package:mpos_mobile/features/pos/data/rooms_api.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/menu_item_entity.dart';
@@ -61,6 +64,18 @@ Future<PosClient?> showClientSheet(
   final word = state.clientWord;
   final referenceLabel = state.clientReferenceLabel;
   final isGuest = state.pos.chargeToRoom;
+  if (isGuest) {
+    // Hotels charge a guest checked in to a room (Rooms module), never a typed room number.
+    final picked = await showRoomPicker(context);
+    if (!_roomsUnavailable) {
+      if (picked != null && apply) {
+        bloc.add(PosClientChanged(picked));
+      }
+      return picked;
+    }
+    // No Rooms module: the room is typed below.
+    if (!context.mounted) return null;
+  }
   final nameController = TextEditingController(text: current?.name ?? '');
   final phoneController = TextEditingController(text: current?.phone ?? '');
   final referenceController = TextEditingController(text: current?.reference ?? '');
@@ -246,3 +261,87 @@ Future<PosClient?> showPrescriptionSheet(
 }
 
 String? _blankToNull(String value) => value.trim().isEmpty ? null : value.trim();
+
+/// Set when the room board can't be loaded (no Rooms module): the sheet falls back to typing.
+bool _roomsUnavailable = false;
+
+/// Picks the guest of an occupied room (or walk-in: an empty client). Null when cancelled or when
+/// the business has no Rooms module.
+Future<PosClient?> showRoomPicker(BuildContext context) async {
+  _roomsUnavailable = false;
+  final session = await getIt<SessionStorage>().loadSession();
+  List<RoomBoardItem> rooms;
+  try {
+    rooms = (await RoomsApi(getIt<MposApiClient>()).board(session?.branchId ?? '')).where((r) => r.isOccupied).toList();
+  } catch (_) {
+    _roomsUnavailable = true;
+    return null;
+  }
+
+  if (!context.mounted) return null;
+  final label = context.read<PosBloc>().state.clientReferenceLabel;
+  final searchController = TextEditingController();
+
+  final result = await AppDialog.show(
+    title: 'Guest / $label',
+    leftButtonText: 'Cancel',
+    child: StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final query = searchController.text.trim().toLowerCase();
+        final shown = rooms
+            .where(
+              (r) =>
+                  query.isEmpty ||
+                  r.number.toLowerCase().contains(query) ||
+                  (r.guestName ?? '').toLowerCase().contains(query),
+            )
+            .toList();
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTextField(
+              controller: searchController,
+              labelText: 'Search $label or guest',
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: AppSizes.padding / 2),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.directions_walk),
+              title: const Text('Walk-in (no room)'),
+              onTap: () => Navigator.of(dialogContext).pop(const PosClient()),
+            ),
+            if (rooms.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSizes.padding),
+                child: Text('No guests checked in. Check guests in from the Rooms tab.'),
+              ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final room in shown)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.hotel_outlined),
+                      title: Text('$label ${room.number}'),
+                      subtitle: Text(room.guestName ?? ''),
+                      onTap: () => Navigator.of(
+                        dialogContext,
+                      ).pop(PosClient(name: room.guestName, phone: room.guestPhone, reference: room.number)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  return result is PosClient ? result : null;
+}
