@@ -64,10 +64,21 @@ class AppTextField extends StatefulWidget {
 class _AppTextFieldState extends State<AppTextField> {
   late TextEditingController textEditingController;
 
+  /// Password fields start hidden; the eye button shows or hides the text.
+  late bool obscured = widget.obscureText;
+
   @override
   void initState() {
     textEditingController = widget.controller ?? TextEditingController();
     super.initState();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.obscureText != widget.obscureText) {
+      obscured = widget.obscureText;
+    }
   }
 
   void onChanged(String val) {
@@ -144,7 +155,7 @@ class _AppTextFieldState extends State<AppTextField> {
             cursorColor: Theme.of(context).colorScheme.primary,
             cursorWidth: 1.5,
             autofocus: widget.autofocus,
-            obscureText: widget.obscureText,
+            obscureText: obscured,
             minLines: widget.minLines,
             maxLines: widget.maxLines,
             maxLength: widget.maxLength,
@@ -218,6 +229,17 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget? suffix(BuildContext context) {
     if (widget.suffixWidget != null) {
       return widget.suffixWidget!;
+    }
+
+    if (widget.obscureText) {
+      return IconButton(
+        tooltip: obscured ? 'Show password' : 'Hide password',
+        icon: Icon(
+          obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        onPressed: widget.enabled ? () => setState(() => obscured = !obscured) : null,
+      );
     }
 
     if (widget.type == AppTextFieldType.search) {
