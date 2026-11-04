@@ -8,6 +8,7 @@ import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mpos_mobile/features/pos/data/shift_api.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/shifts/my_shifts_screen.dart';
 import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
 
 /// The cashier sells only inside an open shift with a live MoR session on the shift's register,
@@ -230,12 +231,15 @@ class _ShiftGateState extends State<ShiftGate> {
                     _closeShift();
                   case 'branch':
                     _openBranchShifts();
+                  case 'mine':
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MyShiftsScreen()));
                   case 'refresh':
                     _load();
                 }
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'close', child: Text('Close shift')),
+                const PopupMenuItem(value: 'mine', child: Text('My shifts & documents')),
                 if (_canManageShifts) const PopupMenuItem(value: 'branch', child: Text('Open shifts at this branch')),
                 const PopupMenuItem(value: 'refresh', child: Text('Refresh')),
               ],

@@ -12,6 +12,7 @@ import 'package:mpos_mobile/features/pos/domain/entities/fiscal_invoice_entity.d
 import 'package:mpos_mobile/features/pos/domain/entities/fiscal_memo_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/repositories/invoice_repository.dart';
 import 'package:mpos_mobile/features/pos/presentation/screens/components/invoice_actions.dart';
+import 'package:mpos_mobile/features/pos/presentation/screens/components/order_documents_sheet.dart';
 import 'package:mpos_mobile/shared/widgets/app_empty_state.dart';
 import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
 import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
@@ -843,6 +844,15 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 onPressed: () => shareInvoicePdf(context, widget.orderId),
                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                 label: const Text('Invoice PDF'),
+              ),
+            ),
+            const SizedBox(width: AppSizes.padding / 2),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    showOrderDocumentsSheet(context, orderId: widget.orderId, title: _detail?.orderNumber ?? 'Order'),
+                icon: const Icon(Icons.folder_open_outlined, size: 18),
+                label: const Text('All documents'),
               ),
             ),
           ],
