@@ -129,18 +129,26 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
           }
         }
 
+        // Every buyer field follows the chosen customer; nothing is kept from the previous one.
         void pick(CustomerEntity picked) {
           setState(() {
             customer = picked;
             results = const [];
             nameController.text = picked.legalName;
             tinController.text = picked.tin ?? '';
-            if ((picked.phone ?? '').isNotEmpty) {
-              phoneController.text = picked.phone!;
-            }
-            if ((picked.email ?? '').isNotEmpty) {
-              emailController.text = picked.email!;
-            }
+            phoneController.text = picked.phone ?? '';
+            emailController.text = picked.email ?? '';
+          });
+        }
+
+        // Removing the saved customer clears the details it filled in.
+        void unpick() {
+          setState(() {
+            customer = null;
+            nameController.clear();
+            tinController.clear();
+            phoneController.clear();
+            emailController.clear();
           });
         }
 
@@ -154,7 +162,7 @@ void _showSubmitDialog(BuildContext context, OrderEntity order) {
               InputChip(
                 label: Text('${customer!.legalName} · ${customer!.transactionType}'),
                 avatar: const Icon(Icons.business_outlined, size: 18),
-                onDeleted: () => setState(() => customer = null),
+                onDeleted: unpick,
               )
             else
               Row(

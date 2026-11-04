@@ -158,12 +158,11 @@ Future<PosClient?> showClientSheet(
                   subtitle: Text(
                     [item.transactionType, if ((item.tin ?? '').isNotEmpty) 'TIN ${item.tin}'].join(' · '),
                   ),
+                  // The fields follow the chosen customer; nothing is kept from the previous one.
                   onTap: () => setState(() {
                     customerId = item.id;
                     nameController.text = item.legalName;
-                    if ((item.phone ?? '').isNotEmpty) {
-                      phoneController.text = item.phone!;
-                    }
+                    phoneController.text = item.phone ?? '';
                     results = const [];
                   }),
                 ),
