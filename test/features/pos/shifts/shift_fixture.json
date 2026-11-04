@@ -1,0 +1,105 @@
+{
+ "shifts": {
+  "items": [
+   {
+    "id": "70e25533-c0af-4f59-84d4-a69134c5edc1",
+    "branchId": "33333333-3333-3333-3333-333333333301",
+    "branchName": "Bole Main",
+    "sessionNo": "SES-33333333-0004",
+    "status": "Closed",
+    "openingCash": 1000.0,
+    "expectedCash": 350091.5,
+    "closingCash": 1000.0,
+    "cashDifference": -349091.5,
+    "ordersCount": 39,
+    "salesTotal": 362123.5,
+    "note": null,
+    "openedAt": "2026-10-15T16:55:41.663915Z",
+    "closedAt": "2026-10-17T18:45:44.014658Z",
+    "sourceId": "18dc7ab4-f639-4018-aa16-f75853d3ae91",
+    "sourceName": "Main register",
+    "openedByUserId": null,
+    "openedByName": null
+   }
+  ],
+  "page": 1,
+  "pageSize": 1,
+  "totalCount": 1
+ },
+ "orders": {
+  "items": [
+   {
+    "id": "56bf9191-e0ac-489e-8aa0-2329f7b6e19a",
+    "orderNumber": "ORD-33333333-0070",
+    "status": "Paid",
+    "customerName": "Governement inst",
+    "totalAmount": 207.0,
+    "paymentMethod": "Cash",
+    "irn": "MOCK-IRN-20261017183410136-000016",
+    "salesReceiptRrn": "MOCK-RRN-20261017183410209-000007",
+    "createdAt": "2026-10-17T18:34:10.057631Z",
+    "paidAmount": 207.0,
+    "remainingAmount": 0,
+    "paymentsCount": 1,
+    "paymentMode": "CASH",
+    "customerPhone": "+251911223344",
+    "customerTin": "0000000004",
+    "invoiceNumber": "103",
+    "invoiceVoided": false
+   }
+  ],
+  "page": 1,
+  "pageSize": 1,
+  "totalCount": 1
+ },
+ "documents": [
+  {
+   "kind": "INVOICE",
+   "number": "103",
+   "reference": "MOCK-IRN-20261017183410136-000016",
+   "issuedAt": "2026-10-17T18:34:10.137157Z",
+   "amount": 207.0,
+   "status": "Registered",
+   "downloadable": true,
+   "paymentId": null,
+   "memoId": null,
+   "note": null
+  },
+  {
+   "kind": "RECEIPT",
+   "number": "REC33333333-0070",
+   "reference": "MOCK-RRN-20261017183410209-000007",
+   "issuedAt": "2026-10-17T18:34:10.209256Z",
+   "amount": 207.0,
+   "status": "Registered",
+   "downloadable": true,
+   "paymentId": "9823660c-45c6-4529-8fba-8c2ab5cd703a",
+   "memoId": null,
+   "note": "Cash"
+  },
+  {
+   "kind": "DEBIT_NOTE",
+   "number": "104",
+   "reference": "MOCK-IRN-20261017183410267-000017",
+   "issuedAt": "2026-10-17T18:34:10.26807Z",
+   "amount": 51.75,
+   "status": "Registered",
+   "downloadable": true,
+   "paymentId": null,
+   "memoId": "512fc974-a56e-4e9d-a8c9-ccb6bd6e6dfa",
+   "note": "Payload check \u00b7 collected 51.75 ETB, receipt RRN MOCK-RRN-20261017183410279-000008"
+  },
+  {
+   "kind": "CREDIT_NOTE",
+   "number": "105",
+   "reference": "MOCK-IRN-20261017183410640-000018",
+   "issuedAt": "2026-10-17T18:34:10.64118Z",
+   "amount": 51.75,
+   "status": "Registered",
+   "downloadable": true,
+   "paymentId": null,
+   "memoId": "957b715a-96fc-4a10-8248-d0a2704fc458",
+   "note": "Payload check \u00b7 refunded 51.75 ETB, receipt RRN MOCK-RRN-20261017183410658-000009"
+  }
+ ]
+}
