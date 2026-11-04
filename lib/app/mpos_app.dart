@@ -5,6 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:mpos_mobile/app/app_navigator.dart';
 import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/app/shell/main_shell_screen.dart';
+import 'package:mpos_mobile/app/workspace_block_overlay.dart';
+import 'package:mpos_mobile/core/network/mpos_api_client.dart';
+import 'package:mpos_mobile/core/network/workspace_block.dart';
+import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/core/locale/app_locale.dart';
 import 'package:mpos_mobile/core/locale/locale_cubit.dart';
 import 'package:mpos_mobile/core/theme/app_theme.dart';
@@ -168,6 +172,17 @@ class _MposAppShellState extends State<_MposAppShell> {
     }
   }
 
+  /// "Check again" on the block notice: any business call clears the block when it is lifted.
+  static Future<void> _checkWorkspaceAgain() async {
+    final session = await getIt<SessionStorage>().loadSession();
+    final branchId = session?.branchId ?? '';
+    if (branchId.isEmpty) {
+      WorkspaceBlockNotifier.instance.clear();
+      return;
+    }
+    await getIt<MposApiClient>().get('/branches/$branchId/menu/categories', authenticated: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -188,6 +203,9 @@ class _MposAppShellState extends State<_MposAppShell> {
                 themeMode: themeState.isLight ? ThemeMode.light : ThemeMode.dark,
                 debugShowCheckedModeBanner: false,
                 routerConfig: _router,
+                // Unpaid or suspended business: a full-screen notice over every screen.
+                builder: (context, child) =>
+                    WorkspaceBlockOverlay(onCheckAgain: _checkWorkspaceAgain, child: child ?? const SizedBox.shrink()),
                 locale: locale,
                 supportedLocales: AppLocale.supportedLocales,
                 localizationsDelegates: AppLocale.localizationsDelegates,

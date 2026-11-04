@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart' show MediaType;
 
 import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/core/network/api_response.dart';
+import 'package:mpos_mobile/core/network/workspace_block.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
 
 class MposApiClient {
@@ -113,6 +114,8 @@ class MposApiClient {
       if (decoded is! Map<String, dynamic>) {
         return ApiResponse(success: false, message: 'Unexpected response (${response.statusCode}).');
       }
+      // Unpaid or suspended business: the app shows a full-screen notice (cleared on success).
+      WorkspaceBlockNotifier.instance.inspect(response.statusCode, decoded, path);
 
       return ApiResponse.fromJson(decoded, (json) {
         if (fromJson == null) {
@@ -127,10 +130,7 @@ class MposApiClient {
         message: 'API timed out. Check ${MposConfig.baseUrl} and that the phone is on the same Wi‑Fi.',
       );
     } on http.ClientException catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Cannot reach API at ${MposConfig.baseUrl}. ${e.message}',
-      );
+      return ApiResponse(success: false, message: 'Cannot reach API at ${MposConfig.baseUrl}. ${e.message}');
     } on FormatException {
       return const ApiResponse(success: false, message: 'API returned a non-JSON response.');
     } catch (e) {
@@ -196,6 +196,8 @@ class MposApiClient {
       if (decoded is! Map<String, dynamic>) {
         return ApiResponse(success: false, message: 'Unexpected response (${response.statusCode}).');
       }
+      // Unpaid or suspended business: the app shows a full-screen notice (cleared on success).
+      WorkspaceBlockNotifier.instance.inspect(response.statusCode, decoded, path);
 
       return ApiResponse.fromJson(decoded, (json) {
         if (fromJson == null) {
@@ -210,19 +212,13 @@ class MposApiClient {
         message: 'API timed out. Check ${MposConfig.baseUrl} and that the phone is on the same Wi‑Fi.',
       );
     } on http.ClientException catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Cannot reach API at ${MposConfig.baseUrl}. ${e.message}',
-      );
+      return ApiResponse(success: false, message: 'Cannot reach API at ${MposConfig.baseUrl}. ${e.message}');
     } on FormatException {
       return const ApiResponse(success: false, message: 'API returned a non-JSON response.');
     } catch (e) {
       final message = e.toString();
       if (message.contains('SocketException') || message.contains('Failed host lookup')) {
-        return ApiResponse(
-          success: false,
-          message: 'Cannot reach API at ${MposConfig.baseUrl}. $message',
-        );
+        return ApiResponse(success: false, message: 'Cannot reach API at ${MposConfig.baseUrl}. $message');
       }
       return ApiResponse(success: false, message: message);
     }
