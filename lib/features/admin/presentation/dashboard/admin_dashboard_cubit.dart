@@ -56,8 +56,14 @@ class AdminDashboardCubit extends Cubit<AdminDashboardState> {
     emit(state.copyWith(loading: true, error: null));
 
     OrderSummaryModel summary = OrderSummaryModel.empty;
-    if (branchId.isNotEmpty) {
-      final summaryResult = await _repository.getOrderSummary(branchId);
+    // An owner signed in without a branch sees the first branch's figures (as on the web).
+    var summaryBranchId = branchId;
+    if (summaryBranchId.isEmpty && orgId.isNotEmpty) {
+      final branches = await _repository.listBranches(orgId);
+      summaryBranchId = (branches.data ?? const []).firstOrNull?.id ?? '';
+    }
+    if (summaryBranchId.isNotEmpty) {
+      final summaryResult = await _repository.getOrderSummary(summaryBranchId);
       if (summaryResult.isSuccess && summaryResult.data != null) {
         summary = summaryResult.data!;
       }

@@ -61,7 +61,7 @@ class _DashboardView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _MetricCard(
-                        title: 'Open drafts',
+                        title: 'Open orders',
                         value: '${state.summary.openDrafts}',
                         icon: Icons.receipt_long_outlined,
                       ),
