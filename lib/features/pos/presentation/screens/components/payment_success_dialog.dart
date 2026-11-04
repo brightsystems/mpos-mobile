@@ -207,32 +207,6 @@ class _InvoiceSectionState extends State<_InvoiceSection> {
               _InvoiceRow(label: 'Withheld 3%', value: CurrencyFormatter.format(invoice.incomeWithholdAmount)),
             if (invoice.vatWithholdAmount > 0)
               _InvoiceRow(label: 'VAT withheld', value: CurrencyFormatter.format(invoice.vatWithholdAmount)),
-            if (invoice.signedQr != null) ...[
-              const SizedBox(height: AppSizes.padding),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colorScheme.outlineVariant),
-                    ),
-                    child: Icon(Icons.qr_code_2, size: 40, color: colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      invoice.signedQr!,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
             if (invoice.notifiedAt != null && invoice.notificationPhone != null) ...[
               const SizedBox(height: AppSizes.padding),
               Row(
