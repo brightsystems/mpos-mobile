@@ -1,17 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/core/config/mpos_config.dart';
 import 'package:mpos_mobile/core/mock/mock_fixtures.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
+import 'package:mpos_mobile/features/account/data/today_api.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mpos_mobile/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mpos_mobile/features/pos/presentation/bloc/pos_state.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+/// Today's cash and wallet collections and the orders still open, as the API counts them (the
+/// Addis Ababa day, from the payments themselves): a fully paid sale counts too, not only the
+/// orders still open on this device. Reloads after each sale and on pull-to-refresh.
+class _DashboardScreenState extends State<DashboardScreen> {
+  BranchToday _today = BranchToday.empty;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (MposConfig.mockMode) {
+      setState(() {
+        _today = _mockToday();
+        _loading = false;
+      });
+      return;
+    }
+    setState(() => _error = null);
+    try {
+      final today = await getIt<TodayApi>().today();
+      if (mounted) setState(() => _today = today);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  static BranchToday _mockToday() {
+    final payments = MockFixtures.recentOrders
+        .map(
+          (order) => TodayPayment(
+            orderId: order.orderNumber,
+            orderNumber: order.orderNumber,
+            amount: order.totalAmount,
+            method: order.paymentMethod,
+            paidAt: DateTime.now(),
+            customerPhone: order.customerPhone,
+          ),
+        )
+        .toList();
+    final cash = payments.where((p) => p.method.toLowerCase() == 'cash');
+    final wallet = payments.where((p) => p.method.toLowerCase() != 'cash');
+    return BranchToday(
+      cashTotal: cash.fold(0, (sum, p) => sum + p.amount),
+      cashCount: cash.length,
+      walletTotal: wallet.fold(0, (sum, p) => sum + p.amount),
+      walletCount: wallet.length,
+      paidOrdersCount: payments.length,
+      payments: payments,
+      openOrders: const [],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,184 +86,133 @@ class DashboardScreen extends StatelessWidget {
           return const Scaffold(body: Center(child: Text('Not signed in.')));
         }
 
-        return BlocBuilder<PosBloc, PosState>(
-          builder: (context, posState) {
-            final transactions = _buildTodayTransactions(posState);
-            final pendingOrders = _buildPendingOrders(posState);
-            final cashTransactions = transactions.where((transaction) => transaction.isCash).toList();
-            final walletTransactions = transactions.where((transaction) => !transaction.isCash).toList();
-            final orderCount = transactions.map((transaction) => transaction.orderId).toSet().length;
-            final cashTotal = cashTransactions.fold<double>(0, (sum, transaction) => sum + transaction.amount);
-            final walletTotal = walletTransactions.fold<double>(0, (sum, transaction) => sum + transaction.amount);
-
-            return DefaultTabController(
-              length: 2,
-              child: Scaffold(
-                appBar: AppBar(
-                  title: const Text('Dashboard'),
-                  bottom: const TabBar(
-                    tabs: [
-                      Tab(text: 'Cash'),
-                      Tab(text: 'Wallet'),
-                    ],
-                  ),
-                ),
-                body: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(AppSizes.padding),
-                      child: Column(
-                        children: [
-                          _SummaryBanner(
-                            orderCount: orderCount + pendingOrders.length,
-                            transactionCount: transactions.length,
-                            openOrderCount: pendingOrders.length,
-                          ),
-                          const SizedBox(height: AppSizes.padding / 1.5),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _MetricCard(
-                                  title: 'Cash collected',
-                                  value: CurrencyFormatter.format(cashTotal),
-                                  subtitle: '${cashTransactions.length} transactions',
-                                  icon: Icons.payments_outlined,
-                                ),
-                              ),
-                              const SizedBox(width: AppSizes.padding / 2),
-                              Expanded(
-                                child: _MetricCard(
-                                  title: 'Wallet / Digital',
-                                  value: CurrencyFormatter.format(walletTotal),
-                                  subtitle: '${walletTransactions.length} transactions',
-                                  icon: Icons.account_balance_wallet_outlined,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          _TransactionList(
-                            pendingOrders: pendingOrders,
-                            transactions: cashTransactions,
-                            emptyMessage: 'No cash activity recorded today.',
-                          ),
-                          _TransactionList(
-                            pendingOrders: const [],
-                            transactions: walletTransactions,
-                            emptyMessage: 'No wallet transactions recorded today.',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        // A sale completed on this device: refresh the figures.
+        return BlocListener<PosBloc, PosState>(
+          listenWhen: (previous, current) => previous.lastOrder != current.lastOrder && current.lastOrder != null,
+          listener: (_, _) => _load(),
+          child: _buildBody(context),
         );
       },
     );
   }
 
-  List<_DashboardTransaction> _buildTodayTransactions(PosState state) {
-    final today = DateTime.now();
-    final transactions = <_DashboardTransaction>[];
+  Widget _buildBody(BuildContext context) {
+    final transactions = _today.payments
+        .map(
+          (p) => _DashboardTransaction(
+            orderId: p.orderId,
+            orderNumber: p.orderNumber,
+            amount: p.amount,
+            method: p.method,
+            customerPhone: p.customerPhone,
+            createdAt: p.paidAt,
+            tableNumber: p.tableNumber,
+          ),
+        )
+        .toList();
+    final pendingOrders = _today.openOrders
+        .map(
+          (o) => _PendingOrder(
+            orderId: o.orderId,
+            orderNumber: o.orderNumber,
+            status: o.status,
+            createdAt: o.createdAt,
+            tableNumber: o.tableNumber,
+            customerPhone: o.customerPhone,
+            totalAmount: o.totalAmount,
+            collectedAmount: o.paidAmount,
+            remainingAmount: o.remainingAmount,
+          ),
+        )
+        .toList();
+    final cashTransactions = transactions.where((transaction) => transaction.isCash).toList();
+    final walletTransactions = transactions.where((transaction) => !transaction.isCash).toList();
 
-    if (MposConfig.mockMode) {
-      transactions.addAll(
-        MockFixtures.recentOrders.map(
-          (order) => _DashboardTransaction(
-            orderId: order.orderNumber,
-            orderNumber: order.orderNumber,
-            amount: order.totalAmount,
-            method: order.paymentMethod,
-            customerPhone: order.customerPhone,
-            createdAt: today,
-            tableNumber: null,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Dashboard'),
+          actions: [
+            IconButton(tooltip: 'Refresh', onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Cash'),
+              Tab(text: 'Wallet'),
+            ],
           ),
         ),
-      );
-    }
-
-    for (final order in state.openOrders) {
-      if (!_isSameDay(order.createdAt, today)) {
-        continue;
-      }
-
-      for (final payment in order.payments) {
-        if (payment.status.toLowerCase() != 'completed') {
-          continue;
-        }
-
-        transactions.add(
-          _DashboardTransaction(
-            orderId: order.id,
-            orderNumber: order.ticketNumber ?? order.orderNumber,
-            amount: payment.amount,
-            method: payment.method,
-            customerPhone: order.customerPhone,
-            createdAt: order.createdAt ?? today,
-            tableNumber: order.tableNumber,
-          ),
-        );
-      }
-    }
-
-    transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    return transactions;
-  }
-
-  List<_PendingOrder> _buildPendingOrders(PosState state) {
-    final today = DateTime.now();
-    final orders = <_PendingOrder>[];
-
-    for (final order in state.openOrders) {
-      if (!_isSameDay(order.createdAt, today)) {
-        continue;
-      }
-
-      final collectedAmount = order.payments
-          .where((payment) => payment.status.toLowerCase() == 'completed')
-          .fold<double>(0, (sum, payment) => sum + payment.amount);
-
-      final lastCompletedMethod = order.payments
-          .where((payment) => payment.status.toLowerCase() == 'completed')
-          .fold<String?>(null, (_, payment) => payment.method);
-
-      orders.add(
-        _PendingOrder(
-          orderId: order.id,
-          orderNumber: order.ticketNumber ?? order.orderNumber,
-          createdAt: order.createdAt ?? today,
-          tableNumber: order.tableNumber,
-          customerPhone: order.customerPhone,
-          totalAmount: order.totalAmount,
-          collectedAmount: collectedAmount,
-          remainingAmount: order.remainingTotal,
-          unpaidItemCount: order.unpaidLines.fold<int>(0, (sum, line) => sum + line.remainingQuantity.round()),
-          lastPaymentMethod: lastCompletedMethod,
-        ),
-      );
-    }
-
-    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    return orders;
-  }
-
-  bool _isSameDay(DateTime? value, DateTime other) {
-    if (value == null) {
-      return false;
-    }
-
-    return value.year == other.year && value.month == other.month && value.day == other.day;
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  if (_error != null)
+                    MaterialBanner(
+                      content: Text(_error!),
+                      actions: [TextButton(onPressed: _load, child: const Text('Try again'))],
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSizes.padding),
+                    child: Column(
+                      children: [
+                        _SummaryBanner(
+                          orderCount: _today.paidOrdersCount + pendingOrders.length,
+                          transactionCount: transactions.length,
+                          openOrderCount: pendingOrders.length,
+                        ),
+                        const SizedBox(height: AppSizes.padding / 1.5),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricCard(
+                                title: 'Cash collected',
+                                value: CurrencyFormatter.format(_today.cashTotal),
+                                subtitle: '${_today.cashCount} transactions',
+                                icon: Icons.payments_outlined,
+                              ),
+                            ),
+                            const SizedBox(width: AppSizes.padding / 2),
+                            Expanded(
+                              child: _MetricCard(
+                                title: 'Wallet / Digital',
+                                value: CurrencyFormatter.format(_today.walletTotal),
+                                subtitle: '${_today.walletCount} transactions',
+                                icon: Icons.account_balance_wallet_outlined,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        RefreshIndicator(
+                          onRefresh: _load,
+                          child: _TransactionList(
+                            pendingOrders: pendingOrders,
+                            transactions: cashTransactions,
+                            emptyMessage: 'No cash activity recorded today.',
+                          ),
+                        ),
+                        RefreshIndicator(
+                          onRefresh: _load,
+                          child: _TransactionList(
+                            pendingOrders: const [],
+                            transactions: walletTransactions,
+                            emptyMessage: 'No wallet transactions recorded today.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
   }
 }
 
@@ -435,9 +449,9 @@ class _PendingOrderCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _MiniInfoChip(label: '${order.unpaidItemCount} items open'),
+              _MiniInfoChip(label: order.status),
               _MiniInfoChip(label: 'Total ${CurrencyFormatter.format(order.totalAmount)}'),
-              _MiniInfoChip(label: order.collectionMethodLabel),
+              _MiniInfoChip(label: order.isPartiallyPaid ? 'Part paid' : 'Awaiting collection'),
             ],
           ),
         ],
@@ -550,39 +564,28 @@ class _PendingOrder {
   const _PendingOrder({
     required this.orderId,
     required this.orderNumber,
+    required this.status,
     required this.createdAt,
     required this.tableNumber,
     required this.totalAmount,
     required this.collectedAmount,
     required this.remainingAmount,
-    required this.unpaidItemCount,
     this.customerPhone,
-    this.lastPaymentMethod,
   });
 
   final String orderId;
   final String orderNumber;
+  final String status;
   final DateTime createdAt;
   final String? tableNumber;
   final String? customerPhone;
   final double totalAmount;
   final double collectedAmount;
   final double remainingAmount;
-  final int unpaidItemCount;
-  final String? lastPaymentMethod;
 
   bool get isPartiallyPaid => collectedAmount > 0;
 
   String get statusLabel => isPartiallyPaid ? 'Partially paid' : 'Not collected';
-
-  String get collectionMethodLabel {
-    if (lastPaymentMethod == null || lastPaymentMethod!.trim().isEmpty) {
-      return 'Awaiting collection';
-    }
-
-    final isCash = lastPaymentMethod!.toLowerCase() == 'cash';
-    return isCash ? 'Cash collected so far' : 'Wallet collected so far';
-  }
 
   String get tableLabel {
     final table = (tableNumber == null || tableNumber!.isEmpty) ? 'Walk-in' : 'Table $tableNumber';
