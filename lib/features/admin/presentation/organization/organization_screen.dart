@@ -12,15 +12,7 @@ import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
 import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
 import 'package:mpos_mobile/shared/widgets/app_text_field.dart';
 
-const kOrgTypes = [
-  'Cafeteria',
-  'Shop',
-  'Store',
-  'Hotel',
-  'ConsultancyService',
-  'MedicalService',
-  'Other',
-];
+const kOrgTypes = ['Cafeteria', 'Shop', 'Store', 'Hotel', 'ConsultancyService', 'MedicalService', 'Other'];
 const kSettlementLevels = ['Organization', 'Branch'];
 
 String orgTypeLabel(String code) => switch (code) {
@@ -122,11 +114,10 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
     if (_name.text.trim().isEmpty ||
         _legalName.text.trim().isEmpty ||
         _tin.text.trim().isEmpty ||
-        _vat.text.trim().isEmpty ||
         _email.text.trim().isEmpty ||
         _phone.text.trim().isEmpty ||
         _wereda.text.trim().isEmpty) {
-      AppSnackBar.showError('Name, legal name, TIN, VAT, email, phone, and wereda are required.');
+      AppSnackBar.showError('Name, legal name, TIN, email, phone, and wereda are required.');
       return;
     }
     if (!RegExp(r'^\d{10}$').hasMatch(_tin.text.trim())) {
@@ -175,15 +166,13 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                 AdminDropdownField<String>(
                   label: 'Business type',
                   value: _type,
-                  items: kOrgTypes
-                      .map((o) => DropdownMenuItem(value: o, child: Text(orgTypeLabel(o))))
-                      .toList(),
+                  items: kOrgTypes.map((o) => DropdownMenuItem(value: o, child: Text(orgTypeLabel(o)))).toList(),
                   onChanged: (value) => setState(() => _type = value),
                 ),
                 const SizedBox(height: AppSizes.padding / 2),
                 AppTextField(controller: _tin, labelText: 'TIN *', keyboardType: TextInputType.number),
                 const SizedBox(height: AppSizes.padding / 2),
-                AppTextField(controller: _vat, labelText: 'VAT number *'),
+                AppTextField(controller: _vat, labelText: 'VAT number (optional)', hintText: 'Only if VAT registered'),
                 const SizedBox(height: AppSizes.padding / 2),
                 AppTextField(controller: _email, labelText: 'Email *', keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: AppSizes.padding / 2),

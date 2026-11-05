@@ -92,9 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (authState is! AuthNeedsOnboarding && authState is! AuthAuthenticated) {
       return;
     }
-    final session = authState is AuthNeedsOnboarding
-        ? authState.session
-        : (authState as AuthAuthenticated).session;
+    final session = authState is AuthNeedsOnboarding ? authState.session : (authState as AuthAuthenticated).session;
 
     final orgName = _orgName.text.trim();
     final legalName = _legalName.text.trim().isEmpty ? orgName : _legalName.text.trim();
@@ -109,11 +107,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         legalName.isEmpty ||
         email.isEmpty ||
         phone.isEmpty ||
-        wereda.isEmpty ||
-        vat.isEmpty) {
-      AppSnackBar.showError(
-        'Business name, legal name, TIN, VAT, email, phone, wereda, and branch name are required.',
-      );
+        wereda.isEmpty) {
+      AppSnackBar.showError('Business name, legal name, TIN, email, phone, wereda, and branch name are required.');
       return;
     }
 
@@ -141,9 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'deviceName': 'MPOS Mobile',
     };
 
-    final result = await AppDialog.showProgress(
-      () => _repository.createBusiness(body, deviceId: session.deviceId),
-    );
+    final result = await AppDialog.showProgress(() => _repository.createBusiness(body, deviceId: session.deviceId));
 
     if (!mounted) return;
 
@@ -235,7 +228,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _tin, labelText: 'TIN *', keyboardType: TextInputType.number),
           const SizedBox(height: AppSizes.padding / 2),
-          AppTextField(controller: _vat, labelText: 'VAT number *'),
+          AppTextField(controller: _vat, labelText: 'VAT number (optional)', hintText: 'Only if VAT registered'),
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _email, labelText: 'Business email *', keyboardType: TextInputType.emailAddress),
           const SizedBox(height: AppSizes.padding / 2),
@@ -254,16 +247,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onChanged: (value) => setState(() => _settlementLevel = value),
           ),
           const SizedBox(height: AppSizes.padding),
-          Text(
-            'First branch',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
+          Text('First branch', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _branchName, labelText: 'Branch name'),
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _branchCity, labelText: 'City (optional)'),
           const SizedBox(height: AppSizes.padding / 2),
-          AppTextField(controller: _branchPhone, labelText: 'Branch phone (optional)', keyboardType: TextInputType.phone),
+          AppTextField(
+            controller: _branchPhone,
+            labelText: 'Branch phone (optional)',
+            keyboardType: TextInputType.phone,
+          ),
           const SizedBox(height: AppSizes.padding / 2),
           AppTextField(controller: _branchAddress, labelText: 'Address (optional)'),
           const SizedBox(height: AppSizes.padding),
