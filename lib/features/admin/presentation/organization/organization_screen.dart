@@ -12,12 +12,23 @@ import 'package:mpos_mobile/shared/widgets/app_progress_indicator.dart';
 import 'package:mpos_mobile/shared/widgets/app_snack_bar.dart';
 import 'package:mpos_mobile/shared/widgets/app_text_field.dart';
 
-const kOrgTypes = ['Cafeteria', 'Shop', 'Store', 'Hotel', 'ConsultancyService', 'MedicalService', 'Other'];
+const kOrgTypes = [
+  'Cafeteria',
+  'Shop',
+  'Store',
+  'Hotel',
+  'Pharmacy',
+  'Manufacturer',
+  'ConsultancyService',
+  'MedicalService',
+  'Other',
+];
 const kSettlementLevels = ['Organization', 'Branch'];
 
 String orgTypeLabel(String code) => switch (code) {
   'ConsultancyService' => 'Consultancy Service',
   'MedicalService' => 'Medical Service',
+  'Manufacturer' => 'Manufacturer / Factory',
   _ => code,
 };
 

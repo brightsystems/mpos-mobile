@@ -45,6 +45,9 @@ class BusinessTypePos extends Equatable {
       case 'Shop':
       case 'Store':
         return const BusinessTypePos(layout: 'List', scanFirst: true, quickCash: true);
+      case 'Manufacturer':
+        // Cash and walk-in by default; credit and business buyers are offered, not forced.
+        return const BusinessTypePos(layout: 'List', scanFirst: true, quickCash: true, allowCreditSale: true);
       case 'Pharmacy':
         return const BusinessTypePos(
           layout: 'List',
