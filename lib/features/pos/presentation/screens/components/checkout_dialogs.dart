@@ -6,8 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mpos_mobile/app/di/injection.dart';
 import 'package:mpos_mobile/core/storage/session_storage.dart';
 import 'package:mpos_mobile/core/theme/app_sizes.dart';
+import 'package:mpos_mobile/core/network/mpos_api_client.dart';
 import 'package:mpos_mobile/core/utilities/currency_formatter.dart';
 import 'package:mpos_mobile/features/auth/domain/rbac.dart';
+import 'package:mpos_mobile/features/pos/data/pricing_api.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/customer_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/order_entity.dart';
 import 'package:mpos_mobile/features/pos/domain/entities/pos_client.dart';
@@ -85,6 +87,9 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
   // Draft: cash or credit sale.
   late String saleMode = order.isCreditSale ? 'CREDIT' : 'CASH';
 
+  /// The picked customer's price-list prices and credit (null: walking customer).
+  CustomerPrices? prices;
+
   // Payment.
   late String paymentMethod;
   bool buyerWithholds = true;
@@ -101,6 +106,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
   void initState() {
     super.initState();
     customerId = order.customerId ?? _client?.customerId;
+    if (customerId != null) _loadPrices(customerId!);
     final methods = _bloc.state.enabledPaymentMethods;
     paymentMethod = methods.isEmpty ? 'cash' : methods.first.value;
     _resetPaymentAmounts();
@@ -173,19 +179,52 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
   }
 
   /// Every buyer field follows the chosen customer; nothing is kept from the previous one.
-  void _selectCustomer(CustomerEntity picked) => setState(() {
-    customer = picked;
-    customerId = picked.id;
-    name.text = picked.legalName;
-    tin.text = picked.tin ?? '';
-    phone.text = picked.phone ?? '';
-    email.text = picked.email ?? '';
-  });
+  void _selectCustomer(CustomerEntity picked) {
+    setState(() {
+      customer = picked;
+      customerId = picked.id;
+      prices = null;
+      name.text = picked.legalName;
+      tin.text = picked.tin ?? '';
+      phone.text = picked.phone ?? '';
+      email.text = picked.email ?? '';
+    });
+    _loadPrices(picked.id);
+  }
+
+  /// Price list and credit of the customer; the server prices the order the same way on submit.
+  Future<void> _loadPrices(String id) async {
+    try {
+      final session = await getIt<SessionStorage>().loadSession();
+      final organizationId = session?.organizationId;
+      if (organizationId == null || organizationId.isEmpty) return;
+      final loaded = await PricingApi(getIt<MposApiClient>()).customerPrices(organizationId, id);
+      if (!mounted || customerId != id) return;
+      setState(() => prices = loaded);
+    } catch (_) {
+      // Prices and credit are informative here; the server applies them on submit.
+    }
+  }
+
+  /// The draft's total at the customer's prices (what submitting will register).
+  double get _draftTotal => order.isDraft && prices != null ? prices!.estimateTotal(order) : order.totalAmount;
+
+  /// A credit sale over the customer's credit limit: refused unless a manager approves.
+  String? get _creditWarning {
+    final credit = prices?.credit;
+    if (!order.isDraft || saleMode != 'CREDIT' || credit == null || !credit.hasLimit) return null;
+    final available = credit.available! < 0 ? 0.0 : credit.available!;
+    return _draftTotal > available
+        ? 'Over the credit limit: ${CurrencyFormatter.format(available)} available '
+              '(owes ${CurrencyFormatter.format(credit.owed)}). A manager must approve.'
+        : null;
+  }
 
   /// Back to the walking customer: the saved customer's details are cleared.
   void _clearCustomer() => setState(() {
     customer = null;
     customerId = null;
+    prices = null;
     name.clear();
     tin.clear();
     phone.clear();
@@ -334,6 +373,8 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
           if (order.discountAmount > 0) _SumRow(label: 'Discount', amount: -order.discountAmount),
           _SumRow(label: 'Taxes', amount: order.taxAmount),
           _SumRow(label: 'Total', amount: order.totalAmount, bold: true, suffix: ' ETB'),
+          if (order.isDraft && prices?.priceListName != null && _draftTotal != order.totalAmount)
+            _SumRow(label: 'At ${prices!.priceListName} prices', amount: _draftTotal, bold: true, suffix: ' ETB'),
           if (!order.isDraft && buyerWithholds && withholding > 0) ...[
             _SumRow(label: 'Withholding (kept by buyer)', amount: -withholding),
             _SumRow(label: 'Customer pays', amount: _amountPayable, bold: true, suffix: ' ETB'),
@@ -382,6 +423,21 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
             keyboardType: TextInputType.emailAddress,
             onChanged: (_) => setState(() {}),
           ),
+          if (prices != null &&
+              (prices!.priceListName != null || prices!.credit.hasLimit || prices!.credit.owed > 0)) ...[
+            const SizedBox(height: AppSizes.padding / 2),
+            Text(
+              [
+                if (prices!.priceListName != null) '${prices!.priceListName} prices',
+                if (prices!.credit.owed > 0 || prices!.credit.hasLimit)
+                  'Owes ${CurrencyFormatter.format(prices!.credit.owed)}',
+                if (prices!.credit.hasLimit) 'available ${CurrencyFormatter.format(prices!.credit.available!)}',
+                if (prices!.credit.overdue > 0) 'overdue ${CurrencyFormatter.format(prices!.credit.overdue)}',
+              ].join(' · '),
+              key: const ValueKey('customer-terms'),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+            ),
+          ],
           if (room != null && room.isNotEmpty) ...[
             const SizedBox(height: AppSizes.padding / 2),
             Text('${state.clientReferenceLabel}: $room', style: theme.textTheme.labelLarge),
@@ -428,6 +484,14 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
       selected: {saleMode},
       onSelectionChanged: busy ? null : (value) => setState(() => saleMode = value.first),
     ),
+    if (_creditWarning != null) ...[
+      const SizedBox(height: AppSizes.padding / 2),
+      Text(
+        _creditWarning!,
+        key: const ValueKey('credit-warning'),
+        style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
+      ),
+    ],
     const SizedBox(height: AppSizes.padding),
     if (canChargeToRoom) ...[
       AppButton(
@@ -440,7 +504,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
       const SizedBox(height: AppSizes.padding / 2),
     ],
     AppButton(
-      text: busy ? 'Submitting…' : 'Payment · ${CurrencyFormatter.format(order.totalAmount)}',
+      text: busy ? 'Submitting…' : 'Payment · ${CurrencyFormatter.format(_draftTotal)}',
       enabled: !busy,
       onTap: _submit,
     ),
