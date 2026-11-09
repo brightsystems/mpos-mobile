@@ -871,6 +871,22 @@ class _PosCartFooter extends StatelessWidget {
   }
 }
 
+/// A discount as typed, in ETB: "x%" is x percent of [lineValue], a plain number is the amount.
+/// Null when it can't be read or is more than the line value; empty is 0.
+@visibleForTesting
+double? discountAmount(String input, double lineValue) {
+  final text = input.trim().replaceAll(',', '.');
+  if (text.isEmpty) return 0;
+  final percent = text.endsWith('%');
+  final value = double.tryParse(percent ? text.substring(0, text.length - 1).trim() : text);
+  if (value == null || value < 0) return null;
+  if (percent) {
+    if (value > 100) return null;
+    return (lineValue * value / 100 * 100).roundToDouble() / 100;
+  }
+  return value > lineValue ? null : value;
+}
+
 void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
   final bloc = context.read<PosBloc>();
   final discountController = TextEditingController(text: line.discount > 0 ? line.discount.toStringAsFixed(2) : '');
@@ -881,9 +897,9 @@ void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
     leftButtonText: 'Cancel',
     child: StatefulBuilder(
       builder: (context, setState) {
-        final parsed = double.tryParse(discountController.text.trim());
         final entered = discountController.text.trim();
-        final valid = entered.isEmpty || (parsed != null && parsed >= 0 && parsed <= maxDiscount);
+        final amount = discountAmount(entered, maxDiscount);
+        final valid = entered.isEmpty || amount != null;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -895,16 +911,21 @@ void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
             const SizedBox(height: AppSizes.padding),
             AppTextField(
               controller: discountController,
-              labelText: 'Discount amount (ETB)',
-              hintText: '0.00',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              labelText: 'Discount (% or ETB)',
+              hintText: 'e.g. 5% or 100',
+              keyboardType: TextInputType.text,
               onChanged: (_) => setState(() {}),
             ),
+            if (valid && entered.endsWith('%') && amount != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${CurrencyFormatter.format(amount)} off', style: Theme.of(context).textTheme.bodySmall),
+              ),
             if (!valid)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Enter an amount between 0 and ${CurrencyFormatter.format(maxDiscount)}.',
+                  'Enter a percentage (e.g. 5%) or an amount up to ${CurrencyFormatter.format(maxDiscount)}.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
                 ),
               ),
@@ -913,8 +934,7 @@ void _showLineDiscountDialog(BuildContext context, OrderLineEntity line) {
               text: 'Apply discount',
               enabled: valid,
               onTap: () {
-                final amount = double.tryParse(discountController.text.trim()) ?? 0;
-                bloc.add(PosLineDiscountChanged(line.id, amount));
+                bloc.add(PosLineDiscountChanged(line.id, discountAmount(discountController.text, maxDiscount) ?? 0));
                 Navigator.of(context).pop();
               },
             ),

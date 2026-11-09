@@ -203,6 +203,11 @@ void showRegisterMemoDialog(
             AppTextField(
               controller: reasonController,
               labelText: 'Reason (3-100 chars)',
+              minLines: 3,
+              maxLines: 4,
+              maxLength: 100,
+              showCounter: true,
+              keyboardType: TextInputType.multiline,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: AppSizes.padding),
