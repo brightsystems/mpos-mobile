@@ -893,11 +893,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                     if (mounted) {
                       setState(() => _memos = [..._memos, memo]);
                       if (memo.outcome.isNotEmpty) {
-                        if (memo.isReceiptStage && memo.receiptRrn == null) {
-                          AppSnackBar.showError(memo.outcome);
-                        } else {
-                          AppSnackBar.show(memo.outcome);
-                        }
+                        AppSnackBar.show(memo.outcome);
                       }
                       // A note before full payment changes what the buyer still owes.
                       if (memo.isInvoiceStage) {
