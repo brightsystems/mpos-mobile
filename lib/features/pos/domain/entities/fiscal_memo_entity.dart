@@ -106,12 +106,10 @@ class FiscalMemoEntity extends Equatable {
     if (!isReceiptStage) {
       return '';
     }
-    if (receiptRrn == null) {
-      return 'The note is registered but its receipt failed: ${receiptError ?? 'unknown error'}.';
-    }
+    // Notes are registered on the invoice only (no MoR receipt): the cashier settles the difference.
     return isCredit
-        ? 'Refund ${amount(refundAmount)} to the buyer in cash. Receipt $receiptRrn.'
-        : 'Collect ${amount(receiptAmount)} from the buyer. Receipt $receiptRrn.';
+        ? 'Refund ${amount(refundAmount)} to the buyer in cash.'
+        : 'Collect ${amount(receiptAmount)} from the buyer.';
   }
 
   String get typeLabel => isCredit ? 'Credit note' : 'Debit note';
